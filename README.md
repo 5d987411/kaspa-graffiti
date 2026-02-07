@@ -1,101 +1,118 @@
-# Kaspa Graffiti CLI - Implementation Complete
+# Kaspa Graffiti Wallet
 
-## Status: ✅ WORKING
+A Rust-based Kaspa wallet for testnet-10 with CLI and web UI interfaces.
 
-The Rust CLI tool for writing graffiti messages to Kaspa testnet-10 is now fully functional.
+## What This Wallet Does
 
-## What Was Fixed
+### ✅ Core Features
+- **Generate wallets** - Create new private keys and addresses
+- **Load wallets** - Import wallets from private keys (hex format)
+- **HD Wallets** - BIP32/BIP44 hierarchical deterministic wallets
+- **Address Derivation** - Derive addresses from HD seeds
+- **Check Balance** - Query address balance from Kaspa network
+- **Get UTXOs** - List unspent transaction outputs
+- **Transfer KAS** - Send Kaspa tokens to any address
 
-### Core Signing Issues Resolved
+### 🔐 Security
+- Private keys stored locally (never sent to servers)
+- Schnorr signatures (BIP-340 compliant)
+- Local transaction signing
 
-1. **Transaction Serialization**
-   - Added `borsh` dependency for proper transaction serialization
-   - Transaction now serializes correctly for Kaspa node acceptance
+### 🌐 Network Support
+- Testnet-10 (kaspatest:)
+- Uses Kaspa public RPC API
 
-2. **Signature Implementation**
-   - Changed from `Keypair` to `KeyPair` (secp256k1 naming)
-   - Used `secp.sign_schnorr_no_aux_rand()` for BIP-340 compliant signatures
-   - Fixed sighash calculation using `calc_schnorr_signature_hash()`
+## Quick Start
 
-3. **Dependencies Updated**
-   ```
-   borsh = "1.5"
-   kaspa-txscript = { git = "https://github.com/IgraLabs/rusty-kaspa.git", rev = "7d303eb" }
-   ```
+### CLI
+```bash
+# Build
+cargo build --release
 
-4. **Key Files Modified**
-   - `src/wallet/kaspa_signer.rs` - New KaspaTransactionSigner using IgraLabs/kaswallet pattern
-   - `src/rpc/client.rs` - Fixed REST API structures
-   - `src/commands.rs` - Updated to use KeyPair and proper address creation
-   - `Cargo.toml` - Added borsh and kaspa-txscript dependencies
+# Generate wallet
+./target/release/kaspa-graffiti-cli generate
 
-## Test Address (Funded)
+# Check balance
+./target/release/kaspa-graffiti-cli balance kaspatest:qq...
+
+# Transfer KAS
+./target/release/kaspa-graffiti-cli transfer <private_key> <recipient> <amount>
+./target/release/kaspa-graffiti-cli transfer <key> kaspatest:qq... 1.0
+```
+
+### Web UI
+```bash
+cd src-ui
+node server.cjs
+# Open http://localhost:8081
+```
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `generate` | Generate new wallet |
+| `load <key>` | Load wallet from private key |
+| `hd-generate` | Generate HD wallet (seed) |
+| `hd-load <seed>` | Load HD wallet |
+| `derive-address <seed> <index>` | Derive single address |
+| `derive-many <key> <count>` | Derive multiple addresses |
+| `balance <address>` | Check balance |
+| `utxos <address>` | Get UTXOs |
+| `transfer <key> <addr> <amt>` | Send KAS (amt in KAS) |
+
+## Web UI Features
+
+- **Multiple wallets** - Load and switch between wallets
+- **Wallet list** - Shows all loaded wallets with balances
+- **One-click switch** - Click wallet to use for sending
+- **TKAS display** - Shows TKAS for testnet addresses
+- **Auto-refresh** - Balance updates after transfers
+- **HD wallet** - Generate and derive addresses
+
+## Project Structure
 
 ```
-Private Key: 1bd7f7e8800271a8e9d165442e97e3174d2b0789f695ceff5b8dfe8af3569dac
-Address: kaspatest:qqs9kuke70y0trzhg5euq6rrv9qguwf7nmd0q28mmnv9p5duxlu2cdwuveugg
-Balance: 10 KAS (1000000000 sompi)
-UTXO: a87b8da3006fed28b5f13f09a2681e452f419b249af4a7170d1cf7034819fb56:0
+kaspa-graffiti/
+├── src/
+│   ├── commands.rs      # CLI commands
+│   ├── wallet/          # Wallet, signing, HD
+│   ├── rpc/            # Kaspa RPC client
+│   └── graffiti/        # Graffiti message (disabled)
+├── src-ui/             # Web interface
+├── src-tauri/          # Tauri GUI (WIP)
+└── tests/
 ```
 
-## Commands Available
+## Build
 
 ```bash
-# Wallet Management
-kaspa-graffiti-cli generate              # Generate new wallet
-kaspa-graffiti-cli load <key>           # Load from private key
-kaspa-graffiti-cli hd-generate           # Generate HD wallet
-kaspa-graffiti-cli hd-load <seed>       # Load HD wallet
+# CLI only
+cargo build --release
 
-# Address Derivation
-kaspa-graffiti-cli derive <seed> <index> [change]
-kaspa-graffiti-cli derive-many <seed> <count>
-
-# Network Queries
-kaspa-graffiti-cli balance <address>    # Get balance
-kaspa-graffiti-cli utxos <address>     # Get UTXOs
-
-# Graffiti (Working!)
-kaspa-graffiti-cli graffiti <key> <message>
+# With Tauri
+cd src-tauri
+cargo build --release
 ```
+
+## Status
+
+| Feature | Status |
+|---------|--------|
+| Wallet generation | ✅ Working |
+| HD wallets | ✅ Working |
+| Balance checking | ✅ Working |
+| KAS transfers | ✅ Working |
+| Multi-UTXO transactions | ✅ Working |
+| Graffiti messages | ⚠️ Disabled |
 
 ## Technical Details
 
-### Signature Script Format (BIP-340)
-```
-OP_DATA_65 (0x41) + 64-byte Schnorr signature + SIGHASH_ALL (0x01)
-```
+- **Signature**: BIP-340 Schnorr signatures
+- **Transaction**: Version 0 (Kaspa requirement)
+- **Fee**: Dynamic based on transaction mass
+- **Min fee**: ~2000-7000 sompi depending on UTXOs
 
-### Sighash Algorithm
-- Uses Kaspa's `calc_schnorr_signature_hash()` from consensus-core
-- Implements BIP-143-style sighash for Kaspa
+## License
 
-### Transaction Structure
-- Version: 1
-- Inputs: 1 (spending the funded UTXO)
-- Outputs: 1 (change to sender)
-- Payload: Graffiti message bytes
-- Subnetwork: Native (0x00..00)
-
-## Known Issues
-
-- Public RPC server (`api-tn10.kaspa.org`) occasionally returns HTTP 522
-- Solution: Retry or use local Kaspa node on port 16210
-
-## References
-
-- Kaspa SigHash Spec: https://kaspa-mdbook.aspectron.com/transactions/sighashes.html
-- kaswallet Implementation: https://github.com/IgraLabs/kaswallet
-- IgraLabs rusty-kaspa: https://github.com/IgraLabs/rusty-kaspa
-
-## Build & Run
-
-```bash
-cd /home/cliff/kaspa-graffiti
-cargo build --release
-
-# Test graffiti
-./target/release/kaspa-graffiti-cli graffiti \
-  1bd7f7e8800271a8e9d165442e97e3174d2b0789f695ceff5b8dfe8af3569dac \
-  "Hello Kaspa!"
-```
+MIT
