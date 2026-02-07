@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Address Validator</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; max-width: 900px; margin: 0 auto; }
+        .result { background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .good { color: #4ade80; }
+        .bad { color: #f87171; }
+        .info { color: #60a5fa; }
+        pre { background: #1a1a1a; padding: 10px; }
+        input { width: 100%; padding: 10px; font-family: monospace; background: #333; color: #fff; border: 1px solid #555; }
+        button { padding: 10px 20px; background: #2563eb; color: white; border: none; cursor: pointer; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Address Validator</h1>
+    <p>Compare your generated address with a known-good address from the API</p>
+    
+    <h3>Known Good Address (from API):</h3>
+    <pre id="knownGood">kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz</pre>
+    
+    <h3>Your Generated Address:</h3>
+    <input type="text" id="userAddress" placeholder="Paste your address here..." 
+           value="kaspatest:qzx2ek3qfs47qqevg5sr5qpp65frqgv84nadj2gyvyaupg8ftacqgwg2heajm">
+    <br><br>
+    <button onclick="validate()">Validate Against API</button>
+    <button onclick="compare()">Compare with Known Good</button>
+    
+    <div id="output"></div>
+
+    <script>
+        const KNOWN_GOOD = 'kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz';
+        
+        function validate() {
+            const addr = document.getElementById('userAddress').value.trim();
+            const output = document.getElementById('output');
+            
+            output.innerHTML = '<div class="result">Validating...</div>';
+            
+            fetch('https://api-tn10.kaspa.org/addresses/' + encodeURIComponent(addr) + '/balance')
+                .then(function(r) {
+                    if (r.ok) return r.json();
+                    throw new Error('HTTP ' + r.status);
+                })
+                .then(function(data) {
+                    output.innerHTML = '<div class="result good"><strong>[VALID]</strong> Address accepted by API<br>Balance: ' + data.balance + ' sompi</div>';
+                })
+                .catch(function(e) {
+                    output.innerHTML = '<div class="result bad"><strong>[INVALID]</strong> ' + e.message + '<br>The generated address format is incorrect.</div>';
+                });
+        }
+        
+        function compare() {
+            const user = document.getElementById('userAddress').value.trim();
+            const output = document.getElementById('output');
+            
+            const userParts = user.split(':');
+            const goodParts = KNOWN_GOOD.split(':');
+            
+            let html = '<div class="result">';
+            html += '<h3>Comparison:</h3>';
+            html += '<pre>Your address:  ' + user + ' (' + user.length + ' chars)</pre>';
+            html += '<pre>Known good:    ' + KNOWN_GOOD + ' (' + KNOWN_GOOD.length + ' chars)</pre>';
+            html += '<br>';
+            
+            if (userParts[0] === goodParts[0]) {
+                html += '<span class="good">[OK] Prefix matches: ' + userParts[0] + '</span><br>';
+            } else {
+                html += '<span class="bad">[FAIL] Prefix mismatch</span><br>';
+            }
+            
+            if (user.length === KNOWN_GOOD.length) {
+                html += '<span class="good">[OK] Length matches: ' + user.length + '</span><br>';
+            } else {
+                html += '<span class="bad">[FAIL] Length mismatch: ' + user.length + ' vs ' + KNOWN_GOOD.length + '</span><br>';
+            }
+            
+            html += '</div>';
+            output.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

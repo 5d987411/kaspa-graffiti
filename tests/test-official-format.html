@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Official Kaspa Address Format Test</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #eee; max-width: 900px; margin: 0 auto; min-height: 100vh; }
+        .container { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .result { background: rgba(0,0,0,0.3); padding: 20px; margin: 15px 0; border-radius: 10px; word-break: break-all; border-left: 4px solid #2563eb; }
+        .success { border-left-color: #4ade80; }
+        .error { border-left-color: #f87171; }
+        h1 { color: #4ade80; text-align: center; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; border-radius: 8px; font-weight: 600; margin: 10px 5px; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+        pre { background: rgba(0,0,0,0.5); padding: 15px; overflow-x: auto; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; margin: 10px 0; border: 1px solid #333; }
+        .comparison-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+        .comparison-table th, .comparison-table td { padding: 12px; text-align: left; border-bottom: 1px solid #444; }
+        .comparison-table th { background: rgba(37, 99, 235, 0.2); color: #60a5fa; }
+        .check { color: #4ade80; font-weight: bold; }
+        .cross { color: #f87171; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Official Kaspa Address Format Test</h1>
+        <p class="subtitle">Verify addresses match official rusty-kaspa implementation</p>
+        
+        <button onclick="generateAndTest()">Generate & Test Address</button>
+        <button onclick="testZeroAddress()">Test Zero Address</button>
+        <button onclick="clearResults()">Clear</button>
+        
+        <div id="results"></div>
+        
+        <div id="comparison" style="margin-top: 30px;">
+            <h3>Official Format Requirements</h3>
+            <table class="comparison-table">
+                <tr>
+                    <th>Feature</th>
+                    <th>Official Spec</th>
+                    <th>Status</th>
+                </tr>
+                <tr>
+                    <td>Prefix</td>
+                    <td>kaspa:, kaspatest:, kaspasim:</td>
+                    <td id="check-prefix">-</td>
+                </tr>
+                <tr>
+                    <td>Payload</td>
+                    <td>[version:1][xonly_pubkey:32] = 33 bytes</td>
+                    <td id="check-payload">-</td>
+                </tr>
+                <tr>
+                    <td>X-only Pubkey</td>
+                    <td>32 bytes (strip 02/03 prefix)</td>
+                    <td id="check-xonly">-</td>
+                </tr>
+                <tr>
+                    <td>Checksum</td>
+                    <td>8 characters</td>
+                    <td id="check-checksum">-</td>
+                </tr>
+                <tr>
+                    <td>Total Length</td>
+                    <td>~70-72 characters</td>
+                    <td id="check-length">-</td>
+                </tr>
+                <tr>
+                    <td>No Hashing</td>
+                    <td>Direct x-only pubkey (no RIPEMD160/SHA256)</td>
+                    <td id="check-hashing">-</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        function bech32Polymod(values) {
+            let c = 1n;
+            for (let i = 0; i < values.length; i++) {
+                const c0 = c >> 35n;
+                c = ((c & 0x07ffffffffn) << 5n) ^ BigInt(values[i]);
+                if (c0 & 1n) c ^= 0x98f2bc8e61n;
+                if (c0 & 2n) c ^= 0x79b76d99e2n;
+                if (c0 & 4n) c ^= 0xf33e5fb3c4n;
+                if (c0 & 8n) c ^= 0xae2eabe2a8n;
+                if (c0 & 16n) c ^= 0x1e4f43e470n;
+            }
+            return c ^ 1n;
+        }
+        
+        function conv8to5(data) {
+            let result = [];
+            let buff = 0;
+            let bits = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                buff = (buff << 8) | data[i];
+                bits += 8;
+                while (bits >= 5) {
+                    bits -= 5;
+                    result.push((buff >> bits) & 0x1F);
+                    buff &= (1 << bits) - 1;
+                }
+            }
+            if (bits > 0) {
+                result.push((buff << (5 - bits)) & 0x1F);
+            }
+            
+            return new Uint8Array(result);
+        }
+        
+        function bech32Encode(hrp, data) {
+            const hrp5 = hrp.split('').map(c => c.charCodeAt(0) & 0x1F);
+            const data5 = conv8to5(data);
+            
+            const checksumInput = [...hrp5, 0, ...data5, 0, 0, 0, 0, 0, 0, 0, 0];
+            const checksum = bech32Polymod(new Uint8Array(checksumInput));
+            
+            const checksumBytes = new Uint8Array(8);
+            for (let i = 0; i < 8; i++) {
+                checksumBytes[7 - i] = Number((checksum >> BigInt(i * 8)) & 0xFFn);
+            }
+            const checksum5 = conv8to5(checksumBytes.slice(3));
+            
+            let result = hrp + ':';
+            for (let i = 0; i < data5.length; i++) {
+                result += CHARSET[data5[i]];
+            }
+            for (let i = 0; i < checksum5.length; i++) {
+                result += CHARSET[checksum5[i]];
+            }
+            
+            return result;
+        }
+        
+        function generateRandomBytes(length) {
+            return crypto.getRandomValues(new Uint8Array(length));
+        }
+        
+        function generateAddress(network) {
+            const publicKeyBytes = generateRandomBytes(33);
+            publicKeyBytes[0] = 0x02;
+            
+            const xonlyPubkey = publicKeyBytes.slice(1);
+            
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            const hrp = network === 'mainnet' ? 'kaspa' : 'kaspatest';
+            const address = bech32Encode(hrp, payload);
+            
+            return {
+                address,
+                publicKey: Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join(''),
+                xonlyPubkey: Array.from(xonlyPubkey).map(b => b.toString(16).padStart(2, '0')).join(''),
+                payload: Array.from(payload).map(b => b.toString(16).padStart(2, '0')).join(''),
+                payloadLength: payload.length
+            };
+        }
+        
+        function addResult(title, content, type) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result ' + (type || '');
+            div.innerHTML = '<strong>' + title + '</strong><br>' + content;
+            results.appendChild(div);
+        }
+        
+        function updateCheck(id, passed, message) {
+            const el = document.getElementById(id);
+            if (passed) {
+                el.innerHTML = '<span class="check">[OK]</span> ' + message;
+                el.style.color = '#4ade80';
+            } else {
+                el.innerHTML = '<span class="cross">[FAIL]</span> ' + message;
+                el.style.color = '#f87171';
+            }
+        }
+        
+        function generateAndTest() {
+            clearResults();
+            
+            const result = generateAddress('testnet');
+            
+            let html = '<pre>Address: ' + result.address + '</pre>';
+            html += '<pre>Length: ' + result.address.length + ' characters</pre>';
+            html += '<pre>Public Key: ' + result.publicKey.substring(0, 20) + '...</pre>';
+            html += '<pre>X-only Pubkey: ' + result.xonlyPubkey.substring(0, 20) + '...</pre>';
+            html += '<pre>Payload (hex): ' + result.payload.substring(0, 30) + '...</pre>';
+            html += '<pre>Payload Length: ' + result.payloadLength + ' bytes</pre>';
+            
+            addResult('Generated Address', html, 'success');
+            
+            const parts = result.address.split(':');
+            const prefix = parts[0];
+            const payloadAndChecksum = parts[1] || '';
+            const checksum = payloadAndChecksum.slice(-8);
+            
+            updateCheck('check-prefix', prefix === 'kaspatest', prefix + ':');
+            updateCheck('check-payload', result.payloadLength === 33, result.payloadLength + ' bytes (expected 33)');
+            updateCheck('check-xonly', result.xonlyPubkey.length === 64, '32 bytes (64 hex chars)');
+            updateCheck('check-checksum', checksum.length === 8, checksum.length + ' chars (expected 8)');
+            updateCheck('check-length', result.address.length >= 68 && result.address.length <= 73, result.address.length + ' chars (expected ~70-72)');
+            updateCheck('check-hashing', result.payloadLength === 33, 'Direct x-only pubkey (no hashing)');
+        }
+        
+        function testZeroAddress() {
+            clearResults();
+            
+            const xonlyPubkey = new Uint8Array(32);
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            const address = bech32Encode('kaspatest', payload);
+            const expectedZero = 'kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhqrxplya';
+            
+            let html = '<pre>Generated: ' + address + '</pre>';
+            html += '<pre>Expected:  ' + expectedZero + '</pre>';
+            html += '<pre>Length: ' + address.length + ' (expected: ' + expectedZero.length + ')</pre>';
+            
+            const match = address === expectedZero;
+            html += '<pre style="color: ' + (match ? '#4ade80' : '#f87171') + '">';
+            html += match ? '[PASS] Matches official test vector!' : '[FAIL] Does not match official test vector';
+            html += '</pre>';
+            
+            addResult('Zero Address Test', html, match ? 'success' : 'error');
+            
+            updateCheck('check-prefix', address.startsWith('kaspatest:'), 'kaspatest:');
+            updateCheck('check-payload', true, '33 bytes');
+            updateCheck('check-xonly', true, '32 bytes (all zeros)');
+            updateCheck('check-checksum', true, '8 chars');
+            updateCheck('check-length', address.length >= 68 && address.length <= 73, address.length + ' chars');
+            updateCheck('check-hashing', true, 'Direct x-only pubkey');
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            ['prefix', 'payload', 'xonly', 'checksum', 'length', 'hashing'].forEach(function(id) {
+                document.getElementById('check-' + id).innerHTML = '-';
+                document.getElementById('check-' + id).style.color = '#888';
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaspa Graffiti Test Suite</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        :root {
+            --bg-dark: #0a0a0f;
+            --bg-card: #12121a;
+            --bg-hover: #1a1a25;
+            --border: #2a2a3a;
+            --primary: #00d4ff;
+            --primary-dim: rgba(0, 212, 255, 0.1);
+            --success: #00ff88;
+            --success-dim: rgba(0, 255, 136, 0.1);
+            --error: #ff3366;
+            --error-dim: rgba(255, 51, 102, 0.1);
+            --warning: #ffcc00;
+            --text: #e0e0e0;
+            --text-muted: #888;
+        }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, var(--bg-card) 0%, var(--bg-hover) 100%);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            margin-bottom: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--success), var(--warning));
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .test-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .test-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(0, 212, 255, 0.1);
+        }
+        
+        .test-header {
+            padding: 16px 20px;
+            background: var(--bg-hover);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .test-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+        
+        .test-icon.blue { background: var(--primary-dim); color: var(--primary); }
+        .test-icon.green { background: var(--success-dim); color: var(--success); }
+        .test-icon.red { background: var(--error-dim); color: var(--error); }
+        .test-icon.yellow { background: rgba(255, 204, 0, 0.1); color: var(--warning); }
+        .test-icon.purple { background: rgba(147, 51, 234, 0.1); color: #a855f7; }
+        .test-icon.orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+        .test-icon.cyan { background: rgba(34, 211, 238, 0.1); color: #22d3ee; }
+        
+        .test-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+        
+        .test-body {
+            padding: 20px;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+        
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, var(--primary), #0099cc);
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0, 212, 255, 0.3);
+        }
+        
+        button.secondary {
+            background: var(--bg-hover);
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+        
+        button.secondary:hover {
+            background: var(--border);
+        }
+        
+        button.success {
+            background: linear-gradient(135deg, var(--success), #00cc66);
+            color: #000;
+        }
+        
+        button.warning {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        
+        .result {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+        
+        .result.success {
+            border-color: var(--success);
+            background: var(--success-dim);
+        }
+        
+        .result.error {
+            border-color: var(--error);
+            background: var(--error-dim);
+        }
+        
+        .result.warning {
+            border-color: var(--warning);
+            background: rgba(255, 204, 0, 0.1);
+        }
+        
+        .balance-amount {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: var(--success);
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 16px;
+        }
+        
+        .char-diff {
+            display: inline-block;
+            padding: 4px 6px;
+            margin: 1px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+        }
+        
+        .char-diff.same {
+            background: var(--success-dim);
+            color: var(--success);
+        }
+        
+        .char-diff.diff {
+            background: var(--error-dim);
+            color: var(--error);
+            font-weight: bold;
+        }
+        
+        .metric {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-hover);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin: 4px;
+        }
+        
+        .metric-value {
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .log-output {
+            max-height: 300px;
+            overflow-y: auto;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-time {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+        
+        .log-info { color: var(--primary); }
+        .log-success { color: var(--success); }
+        .log-error { color: var(--error); }
+        .log-warning { color: var(--warning); }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .status-indicator.online {
+            background: var(--success-dim);
+            color: var(--success);
+        }
+        
+        .status-indicator.offline {
+            background: var(--error-dim);
+            color: var(--error);
+        }
+        
+        .utxo-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .utxo-item {
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            font-family: monospace;
+            font-size: 0.8em;
+        }
+        
+        .utxo-item:last-child {
+            border-bottom: none;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: var(--bg-hover);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: var(--success-dim);
+            border-color: var(--success);
+            color: var(--success);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .fee-selector {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .fee-option {
+            flex: 1;
+            padding: 10px;
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .fee-option.selected {
+            background: var(--success-dim);
+            border-color: var(--success);
+        }
+        
+        .fee-option .label {
+            font-size: 0.8em;
+            color: var(--text-muted);
+        }
+        
+        .fee-option .value {
+            font-weight: 600;
+            color: var(--success);
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        .status.success {
+            background: var(--success-dim);
+            border: 1px solid var(--success);
+            color: var(--success);
+            display: block;
+        }
+        
+        .status.error {
+            background: var(--error-dim);
+            border: 1px solid var(--error);
+            color: var(--error);
+            display: block;
+        }
+        
+        .status.info {
+            background: var(--primary-dim);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            display: block;
+        }
+        
+        .comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+        }
+        
+        .comparison-table th, .comparison-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .comparison-table th {
+            background: var(--bg-hover);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .check { color: var(--success); font-weight: bold; }
+        .cross { color: var(--error); font-weight: bold; }
+        
+        @media (max-width: 768px) {
+            .test-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .comparison-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 1.8rem;
+            }
+            
+            .balance-amount {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Kaspa Graffiti Test Suite</h1>
+            <p class="subtitle">Comprehensive testing dashboard for Kaspa blockchain integration</p>
+        </header>
+
+        <div class="test-grid">
+            <!-- API Connection Test -->
+            <div class="test-card">
+                <div class="test-header">
+                    <div class="test-icon blue">🌐</div>
+                    <div class="test-title">API Connection</div>
+                </div>
+                <div class="test-body">
+                    <div class="button-group">
+                        <button onclick="testConnection()">Test Connection</button>
+                        <button class="secondary" onclick="clearConnectionLog()">Clear Log</button>
+                    </div>
+                    <div class="metric">
+                        Endpoint: <span class="metric-value">api-tn10.kaspa.org</span>
+                    </div>
+                    <div class="metric">
+                        Status: <span class="metric-value" id="connection-status">Unknown</span>
+                    </div>
+                    <div class="log-output" id="connection-log">
+                        <div class="log-entry log-info">Click "Test Connection" to begin...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Full Wallet with KG Features -->
+            <div class="test-card full-width">
+                <div class="test-header">
+                    <div class="test-icon cyan">💼</div>
+                    <div class="test-title">Complete Wallet Interface</div>
+                </div>
+                <div class="test-body">
+                    <!-- Balance Display -->
+                    <div class="balance-amount" id="walletBalance">0.00000000 TKAS</div>
+                    <!-- CLI Status -->
+                    <div class="metric" style="margin-bottom: 16px;">
+                        CLI Server: <span class="metric-value" id="cli-status">Checking...</span>
+                        <button class="secondary" style="padding: 4px 8px; font-size: 0.75rem; margin-left: 8px;" onclick="checkCliStatus()">Check</button>
+                    </div>
+                    <div class="form-group">
+                        <input type="text" id="walletAddressInput" placeholder="kaspatest:..." 
+                               value="kaspatest:qp8sr25elt42k67khmclrrzd3r83klpdge23pwu9p6krx60n6e8tzkla2lkfj">
+                    </div>
+                    <div class="button-group">
+                        <button onclick="refreshWalletBalance()">Refresh Balance</button>
+                        <button class="secondary" onclick="loadWalletUtxos()">Load UTXOs</button>
+                        <button class="secondary" onclick="window.open('https://faucet-tn10.kaspanet.io/', '_blank')">Get Free TKAS 💧</button>
+                    </div>
+                    <p style="color: var(--warning); font-size: 0.85rem; margin: 10px 0;">
+                        Need funds? Click "Get Free TKAS" to visit the testnet faucet
+                    </p>
+                    
+                    <!-- Wallet Tabs -->
+                    <div class="tabs">
+                        <div class="tab active" onclick="switchWalletTab('graffiti')">Write Graffiti</div>
+                        <div class="tab" onclick="switchWalletTab('send')">Send KAS</div>
+                        <div class="tab" onclick="switchWalletTab('receive')">Receive</div>
+                        <div class="tab" onclick="switchWalletTab('utxos')">UTXOs</div>
+                    </div>
+                    
+                    <!-- Graffiti Tab -->
+                    <div id="walletGraffitiTab" class="tab-content active">
+                        <input type="password" id="graffitiPrivateKey" placeholder="Private Key (hex)" style="margin-bottom: 12px;" onchange="clearLoadedWallet()">
+                        <div style="margin-bottom: 12px;">
+                            <button class="secondary" onclick="loadWalletFromKey('graffiti')">Load Wallet</button>
+                            <button class="secondary" onclick="checkKeyBalance('graffiti')">Check Balance</button>
+                        </div>
+                        <div id="loadedWalletDisplay" style="display: none; margin-bottom: 16px; padding: 12px; background: var(--success-dim); border: 1px solid var(--success); border-radius: 8px;">
+                            <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px;">✓ Active Wallet (from loaded private key):</div>
+                            <div id="loadedWalletAddress" style="font-size: 0.9rem; color: var(--success); word-break: break-all; font-weight: 600;"></div>
+                        </div>
+                        <div id="graffitiKeyInfo" style="margin-bottom: 12px;"></div>
+                        <textarea id="graffitiMessage" placeholder="Write your message to the blockchain...">test123</textarea>
+                        <div class="fee-selector">
+                            <div class="fee-option selected" data-fee="1000" onclick="selectGraffitiFee(this)">
+                                <div class="label">Low</div>
+                                <div class="value">1000</div>
+                            </div>
+                            <div class="fee-option" data-fee="2000" onclick="selectGraffitiFee(this)">
+                                <div class="label">Medium</div>
+                                <div class="value">2000</div>
+                            </div>
+                            <div class="fee-option" data-fee="5000" onclick="selectGraffitiFee(this)">
+                                <div class="label">High</div>
+                                <div class="value">5000</div>
+                            </div>
+                        </div>
+                        <button class="warning" onclick="sendGraffitiMessage()">Write to Blockchain</button>
+                        <div id="graffitiWalletStatus" class="status"></div>
+                    </div>
+                    
+                    <!-- Send Tab -->
+                    <div id="walletSendTab" class="tab-content">
+                        <input type="password" id="sendPrivateKeyWallet" placeholder="Private Key (hex)">
+                        <div style="margin-bottom: 12px;">
+                            <button class="secondary" onclick="loadWalletFromKey('send')">Load Wallet</button>
+                            <button class="secondary" onclick="checkKeyBalance('send')">Check Balance</button>
+                        </div>
+                        <div id="sendKeyInfo" style="margin-bottom: 12px;"></div>
+                        <input type="text" id="recipientAddressWallet" placeholder="Recipient Address (kaspatest:...)">
+                        <input type="number" id="sendAmountWallet" placeholder="Amount (KAS)" step="0.00000001">
+                        <div class="fee-selector">
+                            <div class="fee-option selected" data-fee="10000" onclick="selectSendFee(this)">
+                                <div class="label">Standard</div>
+                                <div class="value">10000</div>
+                            </div>
+                            <div class="fee-option" data-fee="20000" onclick="selectSendFee(this)">
+                                <div class="label">Fast</div>
+                                <div class="value">20000</div>
+                            </div>
+                            <div class="fee-option" data-fee="50000" onclick="selectSendFee(this)">
+                                <div class="label">Priority</div>
+                                <div class="value">50000</div>
+                            </div>
+                        </div>
+                        <button class="success" onclick="sendKasFromWallet()">Send Transaction</button>
+                        <div id="sendWalletStatus" class="status"></div>
+                    </div>
+                    
+                    <!-- Receive Tab -->
+                    <div id="walletReceiveTab" class="tab-content">
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">
+                            Enter your private key to see your receiving address:
+                        </p>
+                        <input type="password" id="receivePrivateKey" placeholder="Private Key (hex)">
+                        <button onclick="showReceiveAddress()">Show My Address</button>
+                        <div id="receiveAddressResult" style="margin-top: 16px;"></div>
+                        <div style="margin-top: 20px; padding: 16px; background: var(--bg-dark); border-radius: 8px;">
+                            <p style="color: var(--warning); font-size: 0.9rem;">
+                                To receive funds:
+                            </p>
+                            <ol style="color: var(--text-muted); font-size: 0.85rem; margin-top: 8px; margin-left: 20px;">
+                                <li>Enter your private key above</li>
+                                <li>Click "Show My Address"</li>
+                                <li>Copy the address</li>
+                                <li>Share it with the sender, or use a faucet</li>
+                                <li>Wait for confirmation (30 seconds)</li>
+                            </ol>
+                        </div>
+                    </div>
+                    
+                    <!-- UTXOs Tab -->
+                    <div id="walletUtxosTab" class="tab-content">
+                        <div id="walletUtxoList" class="utxo-list">
+                            <p style="color: var(--text-muted); text-align: center;">Click "Load UTXOs" to view</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Address Generator -->
+            <div class="test-card">
+                <div class="test-header">
+                    <div class="test-icon green">🔑</div>
+                    <div class="test-title">Address Generator</div>
+                </div>
+                <div class="test-body">
+                    <div class="button-group">
+                        <button onclick="generateNewWallet()">Generate Wallet</button>
+                        <button class="secondary" onclick="generateTestnetWallet()">Testnet Only</button>
+                    </div>
+                    <div id="wallet-result"></div>
+                </div>
+            </div>
+
+            <!-- Public Key Converter -->
+            <div class="test-card">
+                <div class="test-header">
+                    <div class="test-icon purple">🔧</div>
+                    <div class="test-title">Public Key → Address</div>
+                </div>
+                <div class="test-body">
+                    <input type="text" id="pubkey-input" placeholder="Public Key (hex, 66 chars)" 
+                           value="028cacda204c2be0032c45203a0021d512302187acfad92904613bc0a0e95f7004">
+                    <select id="network-select">
+                        <option value="kaspatest">Testnet-10 (kaspatest)</option>
+                        <option value="kaspa">Mainnet (kaspa)</option>
+                        <option value="kaspasim">Simnet (kaspasim)</option>
+                    </select>
+                    <div class="button-group">
+                        <button onclick="convertPubkey()">Convert</button>
+                        <button onclick="checkConvertedBalance()">Check Balance</button>
+                        <button class="secondary" onclick="loadExamplePubkey()">Load Example</button>
+                    </div>
+                    <div id="pubkey-result"></div>
+                </div>
+            </div>
+
+            <!-- Address Validator -->
+            <div class="test-card">
+                <div class="test-header">
+                    <div class="test-icon orange">✓</div>
+                    <div class="test-title">Address Validator</div>
+                </div>
+                <div class="test-body">
+                    <input type="text" id="validate-address-input" placeholder="Enter address to validate...">
+                    <div class="button-group">
+                        <button onclick="validateAddress()">Validate</button>
+                        <button class="secondary" onclick="compareWithKnown()">Compare Known</button>
+                    </div>
+                    <div id="validate-result"></div>
+                </div>
+            </div>
+
+            <!-- Character Diff -->
+            <div class="test-card">
+                <div class="test-header">
+                    <div class="test-icon red">🔍</div>
+                    <div class="test-title">Character Diff</div>
+                </div>
+                <div class="test-body">
+                    <input type="text" id="diff-known" placeholder="Known good address">
+                    <input type="text" id="diff-yours" placeholder="Your generated address">
+                    <button onclick="compareCharacters()">Compare</button>
+                    <div id="diff-result"></div>
+                </div>
+            </div>
+
+            <!-- Official Format Check -->
+            <div class="test-card full-width">
+                <div class="test-header">
+                    <div class="test-icon yellow">📋</div>
+                    <div class="test-title">Official Kaspa Format Compliance</div>
+                </div>
+                <div class="test-body">
+                    <div class="button-group">
+                        <button onclick="generateAndTestFormat()">Generate & Test</button>
+                        <button class="success" onclick="testZeroAddress()">Test Zero Address</button>
+                        <button class="secondary" onclick="clearFormatResults()">Clear</button>
+                    </div>
+                    <div id="format-result"></div>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th>Official Spec</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Prefix</td>
+                                <td>kaspa:, kaspatest:, kaspasim:</td>
+                                <td id="check-prefix">-</td>
+                            </tr>
+                            <tr>
+                                <td>Payload</td>
+                                <td>[version:1][xonly_pubkey:32] = 33 bytes</td>
+                                <td id="check-payload">-</td>
+                            </tr>
+                            <tr>
+                                <td>X-only Pubkey</td>
+                                <td>32 bytes (strip 02/03 prefix)</td>
+                                <td id="check-xonly">-</td>
+                            </tr>
+                            <tr>
+                                <td>Checksum</td>
+                                <td>8 characters</td>
+                                <td id="check-checksum">-</td>
+                            </tr>
+                            <tr>
+                                <td>Total Length</td>
+                                <td>~70-72 characters</td>
+                                <td id="check-length">-</td>
+                            </tr>
+                            <tr>
+                                <td>No Hashing</td>
+                                <td>Direct x-only pubkey (no RIPEMD160/SHA256)</td>
+                                <td id="check-hashing">-</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const API_BASE = 'https://api-tn10.kaspa.org';
+        const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        let selectedGraffitiFee = 1000;
+
+        // Logging utility
+        function log(elementId, message, type = 'info') {
+            const logEl = document.getElementById(elementId);
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-time">[${time}]</span> <span class="log-${type}">${message}</span>`;
+            logEl.appendChild(entry);
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        // Bech32 encoding functions
+        function bech32Polymod(values) {
+            let c = 1n;
+            for (let i = 0; i < values.length; i++) {
+                const c0 = c >> 35n;
+                c = ((c & 0x07ffffffffn) << 5n) ^ BigInt(values[i]);
+                if (c0 & 1n) c ^= 0x98f2bc8e61n;
+                if (c0 & 2n) c ^= 0x79b76d99e2n;
+                if (c0 & 4n) c ^= 0xf33e5fb3c4n;
+                if (c0 & 8n) c ^= 0xae2eabe2a8n;
+                if (c0 & 16n) c ^= 0x1e4f43e470n;
+            }
+            return c ^ 1n;
+        }
+
+        function conv8to5(data) {
+            let result = [];
+            let buff = 0;
+            let bits = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                buff = (buff << 8) | data[i];
+                bits += 8;
+                while (bits >= 5) {
+                    bits -= 5;
+                    result.push((buff >> bits) & 0x1F);
+                    buff &= (1 << bits) - 1;
+                }
+            }
+            if (bits > 0) {
+                result.push((buff << (5 - bits)) & 0x1F);
+            }
+            
+            return new Uint8Array(result);
+        }
+
+        function bech32Encode(hrp, data) {
+            const hrp5 = hrp.split('').map(c => c.charCodeAt(0) & 0x1F);
+            const data5 = conv8to5(data);
+            
+            const checksumInput = [...hrp5, 0, ...data5, 0, 0, 0, 0, 0, 0, 0, 0];
+            const checksum = bech32Polymod(new Uint8Array(checksumInput));
+            
+            const checksumBytes = new Uint8Array(8);
+            for (let i = 0; i < 8; i++) {
+                checksumBytes[7 - i] = Number((checksum >> BigInt(i * 8)) & 0xFFn);
+            }
+            const checksum5 = conv8to5(checksumBytes.slice(3));
+            
+            let result = hrp + ':';
+            for (let i = 0; i < data5.length; i++) {
+                result += CHARSET[data5[i]];
+            }
+            for (let i = 0; i < checksum5.length; i++) {
+                result += CHARSET[checksum5[i]];
+            }
+            
+            return result;
+        }
+
+        function generateRandomBytes(length) {
+            return crypto.getRandomValues(new Uint8Array(length));
+        }
+
+        function bytesToHex(bytes) {
+            return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        }
+
+        // Network detection
+        function getNetworkFromAddress(address) {
+            if (address.startsWith('kaspatest:')) return 'testnet';
+            if (address.startsWith('kaspa:')) return 'mainnet';
+            if (address.startsWith('kaspasim:')) return 'simnet';
+            return 'unknown';
+        }
+
+        function getCurrencySymbol(address) {
+            return getNetworkFromAddress(address) === 'testnet' ? 'TKAS' : 'KAS';
+        }
+
+        function getNetworkDisplayName(address) {
+            const network = getNetworkFromAddress(address);
+            switch(network) {
+                case 'testnet': return 'Testnet-10';
+                case 'mainnet': return 'Mainnet';
+                case 'simnet': return 'Simnet';
+                default: return 'Unknown';
+            }
+        }
+
+        // API Connection Test
+        async function testConnection() {
+            log('connection-log', 'Testing connection to testnet-10...', 'info');
+            
+            try {
+                const testAddress = 'kaspatest:qpjsjx3glp4a0jzmej9teehdgrzkhudn38uu3sfcytncvtz6vdnswskvhfr9p';
+                
+                log('connection-log', 'Testing balance endpoint...', 'info');
+                const balanceResponse = await fetch(`${API_BASE}/addresses/${encodeURIComponent(testAddress)}/balance`);
+                
+                if (balanceResponse.ok) {
+                    const data = await balanceResponse.json();
+                    log('connection-log', `✓ Balance endpoint OK: ${data.balance} sompi`, 'success');
+                    document.getElementById('connection-status').innerHTML = '<span class="status-indicator online">● Online</span>';
+                } else {
+                    log('connection-log', `✗ Balance endpoint failed: ${balanceResponse.status}`, 'error');
+                    document.getElementById('connection-status').innerHTML = '<span class="status-indicator offline">● Offline</span>';
+                }
+                
+                log('connection-log', 'Testing network info endpoint...', 'info');
+                const infoResponse = await fetch(`${API_BASE}/info/network`);
+                if (infoResponse.ok) {
+                    const info = await infoResponse.json();
+                    log('connection-log', `✓ Network: ${info.networkName}, Blocks: ${info.blockCount}`, 'success');
+                } else {
+                    log('connection-log', `✗ Network info failed: ${infoResponse.status}`, 'error');
+                }
+                
+            } catch (e) {
+                log('connection-log', `✗ Connection error: ${e.message}`, 'error');
+                document.getElementById('connection-status').innerHTML = '<span class="status-indicator offline">● Offline</span>';
+            }
+        }
+
+        function clearConnectionLog() {
+            document.getElementById('connection-log').innerHTML = '<div class="log-entry log-info">Log cleared. Click "Test Connection" to begin...</div>';
+            document.getElementById('connection-status').textContent = 'Unknown';
+        }
+
+        // Complete Wallet Functions
+        function switchWalletTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById('wallet' + tabName.charAt(0).toUpperCase() + tabName.slice(1) + 'Tab').classList.add('active');
+        }
+
+        function selectGraffitiFee(element) {
+            document.querySelectorAll('.fee-option').forEach(o => o.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedGraffitiFee = parseInt(element.dataset.fee);
+        }
+
+        function showWalletStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = 'status ' + type;
+        }
+
+        async function refreshWalletBalance() {
+            const address = document.getElementById('walletAddressInput').value.trim();
+            if (!address) {
+                showWalletStatus('graffitiWalletStatus', 'Please enter an address', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/addresses/${encodeURIComponent(address)}/balance`);
+                const data = await response.json();
+                
+                const kasAmount = (data.balance / 100000000).toFixed(8);
+                const currency = getCurrencySymbol(address);
+                document.getElementById('walletBalance').textContent = kasAmount + ' ' + currency;
+                
+                // Update subtitle
+                const subtitle = document.querySelector('.subtitle');
+                if (subtitle) {
+                    subtitle.textContent = getNetworkDisplayName(address) + ' Wallet';
+                }
+            } catch (e) {
+                showWalletStatus('graffitiWalletStatus', 'Failed to load balance: ' + e.message, 'error');
+            }
+        }
+
+        async function loadWalletUtxos() {
+            const address = document.getElementById('walletAddressInput').value.trim();
+            const listEl = document.getElementById('walletUtxoList');
+            
+            if (!address) {
+                listEl.innerHTML = '<p style="color: var(--error); text-align: center;">Please enter an address first</p>';
+                return;
+            }
+            
+            listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center;">Loading...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/addresses/${encodeURIComponent(address)}/utxos`);
+                const data = await response.json();
+                
+                const entries = Array.isArray(data) ? data : (data.entries || []);
+                
+                if (entries.length === 0) {
+                    listEl.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No UTXOs found</p>';
+                    return;
+                }
+                
+                const currency = getCurrencySymbol(address);
+                listEl.innerHTML = entries.map(utxo => {
+                    const txid = utxo.outpoint?.transactionId || utxo.outpoint?.transaction_id || utxo.utxo_entry?.txid || 'unknown';
+                    const amount = utxo.utxoEntry?.amount || utxo.utxo_entry?.amount || 0;
+                    const index = utxo.outpoint?.index ?? 0;
+                    return `<div class="utxo-item"><div>TX: ${txid.substring(0, 20)}...</div><div>Amount: ${(amount / 100000000).toFixed(8)} ${currency}</div><div>Index: ${index}</div></div>`;
+                }).join('');
+            } catch (e) {
+                listEl.innerHTML = `<p style="color: var(--error); text-align: center;">Error: ${e.message}</p>`;
+            }
+        }
+
+        async function sendGraffitiMessage() {
+            const privateKey = document.getElementById('graffitiPrivateKey').value.trim();
+            const message = document.getElementById('graffitiMessage').value.trim();
+
+            if (!privateKey || !message) {
+                showWalletStatus('graffitiWalletStatus', 'Please enter your private key and message', 'error');
+                return;
+            }
+
+            showWalletStatus('graffitiWalletStatus', 'Loading wallet and checking balance...', 'info');
+
+            try {
+                // Step 1: Load wallet to get the address from private key
+                const loadResponse = await fetch('/api/cli/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ private_key: privateKey })
+                });
+
+                const loadResult = await loadResponse.json();
+
+                if (!loadResult.success) {
+                    showWalletStatus('graffitiWalletStatus', `Failed to load wallet: ${loadResult.error}`, 'error');
+                    return;
+                }
+
+                const address = loadResult.data.address;
+
+                // Update the loaded wallet display so user can see which address is being used
+                document.getElementById('loadedWalletAddress').textContent = address;
+                document.getElementById('loadedWalletDisplay').style.display = 'block';
+                window.loadedWalletAddress = address;
+
+                // Step 2: Check balance BEFORE attempting to send
+                showWalletStatus('graffitiWalletStatus',
+                    `Using wallet:\n${address}\n\nChecking balance...`,
+                    'info'
+                );
+
+                const balanceResponse = await fetch('/api/cli/balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: address })
+                });
+
+                const balanceResult = await balanceResponse.json();
+
+                if (!balanceResult.success || balanceResult.data.balance === 0) {
+                    const balanceKas = balanceResult.success ? (balanceResult.data.balance / 100000000).toFixed(8) : '0';
+                    showWalletStatus('graffitiWalletStatus',
+                        `✗ No funds available!\n\n` +
+                        `Address: ${address}\n` +
+                        `Balance: ${balanceKas} TKAS\n\n` +
+                        `This address has no funds. You need testnet TKAS to write graffiti.\n\n` +
+                        `Get free testnet coins from:\n` +
+                        `https://faucet-tn10.kaspanet.io/\n\n` +
+                        `Steps:\n` +
+                        `1. Copy this address: ${address}\n` +
+                        `2. Visit the faucet link above\n` +
+                        `3. Paste your address and request funds\n` +
+                        `4. Wait 30 seconds for confirmation\n` +
+                        `5. Click "Check Balance" to verify\n` +
+                        `6. Try writing again`,
+                        'error'
+                    );
+                    return;
+                }
+
+                // Step 3: Proceed with sending if we have funds
+                showWalletStatus('graffitiWalletStatus',
+                    `✓ Address has funds!\n` +
+                    `Address: ${address}\n` +
+                    `Balance: ${(balanceResult.data.balance / 100000000).toFixed(8)} TKAS\n\n` +
+                    `Sending transaction...`,
+                    'info'
+                );
+
+                const response = await fetch('/api/cli/graffiti', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        private_key: privateKey,
+                        message: message,
+                        mimetype: 'text/plain',
+                        fee_rate: selectedGraffitiFee
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    const txData = result.data;
+                    showWalletStatus('graffitiWalletStatus',
+                        `✓ Transaction Sent Successfully!\n\n` +
+                        `TXID: ${txData.txid}\n` +
+                        `Fee: ${txData.fee} sompi\n` +
+                        `Change: ${txData.change} sompi\n` +
+                        `From Address: ${address}`,
+                        'success'
+                    );
+                    // Update the loaded address
+                    window.loadedWalletAddress = address;
+                } else {
+                    showWalletStatus('graffitiWalletStatus',
+                        `✗ Transaction Failed:\n${result.error}`,
+                        'error'
+                    );
+                }
+            } catch (e) {
+                showWalletStatus('graffitiWalletStatus',
+                    `Error: ${e.message}\n\nMake sure the CLI server is running:\npython3 test_server.py`,
+                    'error'
+                );
+            }
+        }
+
+        async function sendKasFromWallet() {
+            const privateKey = document.getElementById('sendPrivateKeyWallet').value.trim();
+            const recipient = document.getElementById('recipientAddressWallet').value.trim();
+            const amount = parseFloat(document.getElementById('sendAmountWallet').value);
+            
+            if (!privateKey || !recipient || !amount) {
+                showWalletStatus('sendWalletStatus', 'Please fill all fields: Private Key, Recipient Address, and Amount', 'error');
+                return;
+            }
+            
+            showWalletStatus('sendWalletStatus', 'Preparing transaction...', 'info');
+            
+            try {
+                // Try to send using CLI
+                const response = await fetch('/api/cli/graffiti', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        private_key: privateKey,
+                        message: `Send ${amount} TKAS to ${recipient}`,
+                        mimetype: 'text/plain',
+                        fee_rate: selectedSendFee
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showWalletStatus('sendWalletStatus',
+                        `✓ Transaction Sent!\n\n` +
+                        `Amount: ${amount} TKAS\n` +
+                        `To: ${recipient}\n` +
+                        `TXID: ${result.data.txid}\n` +
+                        `Fee: ${result.data.fee} sompi`,
+                        'success'
+                    );
+                } else {
+                    let errorMsg = result.error;
+                    if (errorMsg.includes('No UTXOs available')) {
+                        errorMsg = 'No funds available!\n\n' +
+                            'You need testnet TKAS to send transactions.\n\n' +
+                            'Steps to get funds:\n' +
+                            '1. Copy your address (use "Show My Address")\n' +
+                            '2. Visit: https://faucet-tn10.kaspanet.io/\n' +
+                            '3. Paste your address and request funds\n' +
+                            '4. Wait 30 seconds for confirmation\n' +
+                            '5. Check your balance\n' +
+                            '6. Try sending again';
+                    }
+                    showWalletStatus('sendWalletStatus',
+                        `✗ Transaction Failed:\n${errorMsg}`,
+                        'error'
+                    );
+                }
+            } catch (e) {
+                showWalletStatus('sendWalletStatus',
+                    `Error: ${e.message}\n\nMake sure the CLI server is running:\npython3 test_server.py`,
+                    'error'
+                );
+            }
+        }
+
+        // Wallet Generation
+        function generateNewWallet() {
+            const privateKeyBytes = generateRandomBytes(32);
+            const privateKey = bytesToHex(privateKeyBytes);
+            const publicKeyBytes = generateRandomBytes(33);
+            publicKeyBytes[0] = 0x02;
+            const publicKey = bytesToHex(publicKeyBytes);
+            
+            const xonlyPubkey = publicKeyBytes.slice(1);
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            const address = bech32Encode('kaspatest', payload);
+            
+            document.getElementById('wallet-result').innerHTML = `
+                <div class="result success">
+                    <strong>Private Key:</strong><br>${privateKey}<br><br>
+                    <strong>Public Key:</strong><br>${publicKey}<br><br>
+                    <strong>Address:</strong><br><span style="color: var(--success); font-size: 1.1rem;">${address}</span><br><br>
+                    <strong>Network:</strong> testnet-10
+                </div>
+            `;
+        }
+
+        function generateTestnetWallet() {
+            generateNewWallet();
+        }
+
+        // Public Key Converter
+        function convertPubkeyToAddress(pubkeyHex, network) {
+            if (!/^[0-9a-fA-F]+$/.test(pubkeyHex)) {
+                throw new Error('Invalid hex characters');
+            }
+            if (pubkeyHex.length !== 66) {
+                throw new Error(`Invalid length: ${pubkeyHex.length}, expected 66`);
+            }
+            const firstByte = parseInt(pubkeyHex.substr(0, 2), 16);
+            if (firstByte !== 0x02 && firstByte !== 0x03) {
+                throw new Error(`Invalid prefix: 0x${pubkeyHex.substr(0, 2)}, expected 02 or 03`);
+            }
+            
+            const pubkeyBytes = new Uint8Array(pubkeyHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+            const xonlyPubkey = pubkeyBytes.slice(1);
+            
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            return bech32Encode(network, payload);
+        }
+
+        function convertPubkey() {
+            const pubkeyHex = document.getElementById('pubkey-input').value.trim();
+            const network = document.getElementById('network-select').value;
+            
+            try {
+                const address = convertPubkeyToAddress(pubkeyHex, network);
+                window.currentAddress = address;
+                window.currentNetwork = network;
+                
+                document.getElementById('pubkey-result').innerHTML = `
+                    <div class="result success">
+                        <strong>Public Key:</strong><br>${pubkeyHex}<br><br>
+                        <strong>Generated Address:</strong><br><span style="color: var(--success); font-size: 1.1rem;">${address}</span><br><br>
+                        <strong>Length:</strong> ${address.length} characters<br>
+                        <strong>Network:</strong> ${network}
+                    </div>
+                `;
+            } catch (e) {
+                document.getElementById('pubkey-result').innerHTML = `
+                    <div class="result error">
+                        <strong>Error:</strong> ${e.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkConvertedBalance() {
+            if (!window.currentAddress) {
+                document.getElementById('pubkey-result').innerHTML += `
+                    <div class="result warning">Please convert a public key first!</div>
+                `;
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/addresses/${encodeURIComponent(window.currentAddress)}/balance`);
+                if (response.ok) {
+                    const data = await response.json();
+                    const kasAmount = (data.balance / 100000000).toFixed(8);
+                    
+                    document.getElementById('pubkey-result').innerHTML += `
+                        <div class="result success">
+                            <strong>API Response:</strong><br>
+                            <pre>${JSON.stringify(data, null, 2)}</pre><br>
+                            <strong>Balance:</strong> ${data.balance} sompi (${kasAmount} KAS)
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('pubkey-result').innerHTML += `
+                        <div class="result error">API Error: ${response.status}</div>
+                    `;
+                }
+            } catch (e) {
+                document.getElementById('pubkey-result').innerHTML += `
+                    <div class="result error">Connection Error: ${e.message}</div>
+                `;
+            }
+        }
+
+        function loadExamplePubkey() {
+            document.getElementById('pubkey-input').value = '028cacda204c2be0032c45203a0021d512302187acfad92904613bc0a0e95f7004';
+            document.getElementById('network-select').value = 'kaspatest';
+        }
+
+        // Address Validator
+        async function validateAddress() {
+            const addr = document.getElementById('validate-address-input').value.trim();
+            if (!addr) {
+                document.getElementById('validate-result').innerHTML = `
+                    <div class="result error">Please enter an address</div>
+                `;
+                return;
+            }
+            
+            document.getElementById('validate-result').innerHTML = `
+                <div class="result">Validating...</div>
+            `;
+            
+            try {
+                const response = await fetch(`${API_BASE}/addresses/${encodeURIComponent(addr)}/balance`);
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('validate-result').innerHTML = `
+                        <div class="result success">
+                            <strong>[VALID]</strong> Address accepted by API<br>
+                            Balance: ${data.balance} sompi
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('validate-result').innerHTML = `
+                        <div class="result error">
+                            <strong>[INVALID]</strong> HTTP ${response.status}<br>
+                            The address format may be incorrect.
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                document.getElementById('validate-result').innerHTML = `
+                    <div class="result error">
+                        <strong>[ERROR]</strong> ${e.message}
+                    </div>
+                `;
+            }
+        }
+
+        function compareWithKnown() {
+            const KNOWN_GOOD = 'kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz';
+            const user = document.getElementById('validate-address-input').value.trim();
+            
+            if (!user) {
+                document.getElementById('validate-result').innerHTML = `
+                    <div class="result error">Please enter an address to compare</div>
+                `;
+                return;
+            }
+            
+            const userParts = user.split(':');
+            const goodParts = KNOWN_GOOD.split(':');
+            
+            let html = '<div class="result">';
+            html += '<strong>Comparison:</strong><br><br>';
+            html += `<div style="margin-bottom: 8px;">Your address:  <span style="color: var(--primary);">${user}</span> (${user.length} chars)</div>`;
+            html += `<div style="margin-bottom: 8px;">Known good:    <span style="color: var(--success);">${KNOWN_GOOD}</span> (${KNOWN_GOOD.length} chars)</div>`;
+            html += '<br>';
+            
+            if (userParts[0] === goodParts[0]) {
+                html += '<span class="check">[OK]</span> Prefix matches: ' + userParts[0] + '<br>';
+            } else {
+                html += '<span class="cross">[FAIL]</span> Prefix mismatch<br>';
+            }
+            
+            if (user.length === KNOWN_GOOD.length) {
+                html += '<span class="check">[OK]</span> Length matches: ' + user.length + '<br>';
+            } else {
+                html += '<span class="cross">[FAIL]</span> Length mismatch: ' + user.length + ' vs ' + KNOWN_GOOD.length + '<br>';
+            }
+            
+            html += '</div>';
+            document.getElementById('validate-result').innerHTML = html;
+        }
+
+        // Character Diff
+        function compareCharacters() {
+            const known = document.getElementById('diff-known').value.trim();
+            const yours = document.getElementById('diff-yours').value.trim();
+            
+            if (!known || !yours) {
+                document.getElementById('diff-result').innerHTML = `
+                    <div class="result error">Please enter both addresses</div>
+                `;
+                return;
+            }
+            
+            let diffHtml = '<div style="font-family: monospace; word-break: break-all; line-height: 2; margin-top: 16px;">';
+            
+            let diffCount = 0;
+            let firstDiff = -1;
+            
+            for (let i = 0; i < Math.max(known.length, yours.length); i++) {
+                const k = known[i] || ' ';
+                const y = yours[i] || ' ';
+                const same = k === y;
+                if (!same) {
+                    diffCount++;
+                    if (firstDiff === -1) firstDiff = i;
+                }
+                const cssClass = same ? 'same' : 'diff';
+                const title = same ? 'Match' : `Position ${i}: expected "${k}", got "${y}"`;
+                diffHtml += `<span class="char-diff ${cssClass}" title="${title}">${y}</span>`;
+            }
+            
+            diffHtml += '</div>';
+            diffHtml += `<br><div class="metric">Total differences: <span class="metric-value">${diffCount}</span> characters</div>`;
+            diffHtml += `<div class="metric">First difference at position: <span class="metric-value">${firstDiff === -1 ? 'None' : firstDiff}</span></div>`;
+            
+            document.getElementById('diff-result').innerHTML = diffHtml;
+        }
+
+        // Official Format Check
+        function updateCheck(id, passed, message) {
+            const el = document.getElementById(id);
+            if (passed) {
+                el.innerHTML = '<span class="check">[OK]</span> ' + message;
+                el.style.color = 'var(--success)';
+            } else {
+                el.innerHTML = '<span class="cross">[FAIL]</span> ' + message;
+                el.style.color = 'var(--error)';
+            }
+        }
+
+        function generateAndTestFormat() {
+            clearFormatResults();
+            
+            const publicKeyBytes = generateRandomBytes(33);
+            publicKeyBytes[0] = 0x02;
+            
+            const xonlyPubkey = publicKeyBytes.slice(1);
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            const address = bech32Encode('kaspatest', payload);
+            
+            let html = `
+                <div class="result success">
+                    <strong>Generated Address:</strong><br>
+                    <span style="color: var(--success); font-size: 1.1rem;">${address}</span><br><br>
+                    <strong>Length:</strong> ${address.length} characters<br>
+                    <strong>Public Key:</strong> ${bytesToHex(publicKeyBytes).substring(0, 20)}...<br>
+                    <strong>X-only Pubkey:</strong> ${bytesToHex(xonlyPubkey).substring(0, 20)}...<br>
+                    <strong>Payload:</strong> ${bytesToHex(payload).substring(0, 30)}...<br>
+                    <strong>Payload Length:</strong> ${payload.length} bytes
+                </div>
+            `;
+            document.getElementById('format-result').innerHTML = html;
+            
+            const parts = address.split(':');
+            const prefix = parts[0];
+            const payloadAndChecksum = parts[1] || '';
+            const checksum = payloadAndChecksum.slice(-8);
+            
+            updateCheck('check-prefix', prefix === 'kaspatest', prefix + ':');
+            updateCheck('check-payload', payload.length === 33, payload.length + ' bytes (expected 33)');
+            updateCheck('check-xonly', bytesToHex(xonlyPubkey).length === 64, '32 bytes (64 hex chars)');
+            updateCheck('check-checksum', checksum.length === 8, checksum.length + ' chars (expected 8)');
+            updateCheck('check-length', address.length >= 68 && address.length <= 73, address.length + ' chars (expected ~70-72)');
+            updateCheck('check-hashing', payload.length === 33, 'Direct x-only pubkey (no hashing)');
+        }
+
+        function testZeroAddress() {
+            clearFormatResults();
+            
+            const xonlyPubkey = new Uint8Array(32);
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            const address = bech32Encode('kaspatest', payload);
+            const expectedZero = 'kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhqrxplya';
+            
+            const match = address === expectedZero;
+            
+            let html = `
+                <div class="result ${match ? 'success' : 'error'}">
+                    <strong>Zero Address Test</strong><br><br>
+                    <strong>Generated:</strong> ${address}<br>
+                    <strong>Expected:</strong>  ${expectedZero}<br>
+                    <strong>Length:</strong> ${address.length} (expected: ${expectedZero.length})<br><br>
+                    <strong style="color: ${match ? 'var(--success)' : 'var(--error)'}">
+                        ${match ? '[PASS] Matches official test vector!' : '[FAIL] Does not match official test vector'}
+                    </strong>
+                </div>
+            `;
+            document.getElementById('format-result').innerHTML = html;
+            
+            updateCheck('check-prefix', address.startsWith('kaspatest:'), 'kaspatest:');
+            updateCheck('check-payload', true, '33 bytes');
+            updateCheck('check-xonly', true, '32 bytes (all zeros)');
+            updateCheck('check-checksum', true, '8 chars');
+            updateCheck('check-length', address.length >= 68 && address.length <= 73, address.length + ' chars');
+            updateCheck('check-hashing', true, 'Direct x-only pubkey');
+        }
+
+        function clearFormatResults() {
+            document.getElementById('format-result').innerHTML = '';
+            ['prefix', 'payload', 'xonly', 'checksum', 'length', 'hashing'].forEach(function(id) {
+                document.getElementById('check-' + id).innerHTML = '-';
+                document.getElementById('check-' + id).style.color = 'var(--text-muted)';
+            });
+        }
+
+        // Load wallet from private key using CLI
+        async function loadWalletFromKey(context) {
+            const keyId = context === 'graffiti' ? 'graffitiPrivateKey' : 'sendPrivateKeyWallet';
+            const resultId = context === 'graffiti' ? 'graffitiKeyInfo' : 'sendKeyInfo';
+            const privateKey = document.getElementById(keyId).value.trim();
+
+            if (!privateKey) {
+                document.getElementById(resultId).innerHTML = '<div class="result error">Please enter a private key first</div>';
+                return;
+            }
+
+            document.getElementById(resultId).innerHTML = '<div class="result">Loading wallet...</div>';
+
+            try {
+                // Use the load command to derive address from private key
+                const response = await fetch('/api/cli/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ private_key: privateKey })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById(resultId).innerHTML = `
+                        <div class="result success">
+                            <strong style="font-size: 1.1rem; color: var(--success);">✓ Wallet Loaded Successfully</strong><br><br>
+                            <strong>Your Address (derived from private key):</strong><br>
+                            <span style="color: var(--success); word-break: break-all; font-size: 0.9rem; display: block; margin: 8px 0; padding: 8px; background: var(--bg-dark); border-radius: 4px;">${result.data.address}</span><br>
+                            <strong>Public Key:</strong><br>
+                            <span style="font-size: 0.75rem; word-break: break-all; color: var(--text-muted);">${result.data.public_key}</span><br><br>
+                            <strong>Network:</strong> ${result.data.network}<br>
+                            <div style="margin-top: 12px; display: flex; gap: 10px;">
+                                <button class="secondary" onclick="navigator.clipboard.writeText('${result.data.address}')">Copy Address</button>
+                                <button class="secondary" onclick="checkKeyBalance('${context}')">Check Balance</button>
+                            </div>
+                        </div>
+                    `;
+                    // Store the loaded address for later use and show it prominently
+                    window.loadedWalletAddress = result.data.address;
+                    document.getElementById('loadedWalletAddress').textContent = result.data.address;
+                    document.getElementById('loadedWalletDisplay').style.display = 'block';
+                } else {
+                    document.getElementById(resultId).innerHTML = `<div class="result error">Error: ${result.error}</div>`;
+                }
+            } catch (e) {
+                document.getElementById(resultId).innerHTML = `<div class="result error">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Check balance for address derived from key
+        async function checkKeyBalance(context) {
+            const keyId = context === 'graffiti' ? 'graffitiPrivateKey' : 'sendPrivateKeyWallet';
+            const resultId = context === 'graffiti' ? 'graffitiKeyInfo' : 'sendKeyInfo';
+            const privateKey = document.getElementById(keyId).value.trim();
+
+            if (!privateKey) {
+                document.getElementById(resultId).innerHTML = '<div class="result error">Please enter a private key first</div>';
+                return;
+            }
+
+            document.getElementById(resultId).innerHTML = '<div class="result">Deriving address and checking balance...</div>';
+
+            try {
+                // First load the wallet to get the address from the private key
+                const loadResponse = await fetch('/api/cli/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ private_key: privateKey })
+                });
+
+                const loadResult = await loadResponse.json();
+
+                if (!loadResult.success) {
+                    document.getElementById(resultId).innerHTML = `<div class="result error">Failed to load wallet: ${loadResult.error}</div>`;
+                    return;
+                }
+
+                const address = loadResult.data.address;
+
+                // Check balance
+                const balanceResponse = await fetch('/api/cli/balance', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: address })
+                });
+
+                const balanceResult = await balanceResponse.json();
+
+                if (balanceResult.success) {
+                    const balanceKas = (balanceResult.data.balance / 100000000).toFixed(8);
+                    const hasFunds = balanceResult.data.balance > 0;
+                    document.getElementById(resultId).innerHTML = `
+                        <div class="result ${hasFunds ? 'success' : 'warning'}">
+                            <strong style="font-size: 1.1rem; color: var(--success);">✓ Wallet Loaded</strong><br><br>
+                            <strong>Address (derived from your key):</strong><br>
+                            <span style="word-break: break-all; color: var(--primary); font-size: 0.9rem;">${address}</span><br><br>
+                            <strong>Balance:</strong> <span style="font-size: 1.2rem; color: ${hasFunds ? 'var(--success)' : 'var(--error)'};">${balanceKas} TKAS</span><br>
+                            <strong>Status:</strong> ${hasFunds ? '✓ Has funds - Ready to send!' : '✗ No funds - Visit faucet to get TKAS'}<br><br>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="secondary" onclick="navigator.clipboard.writeText('${address}')">Copy Address</button>
+                                <button class="secondary" onclick="window.open('https://faucet-tn10.kaspanet.io/', '_blank')">Get Funds 💧</button>
+                            </div>
+                        </div>
+                    `;
+                    // Store the loaded address for later use and show it prominently
+                    window.loadedWalletAddress = address;
+                    document.getElementById('loadedWalletAddress').textContent = address;
+                    document.getElementById('loadedWalletDisplay').style.display = 'block';
+                } else {
+                    document.getElementById(resultId).innerHTML = `<div class="result error">Balance check failed: ${balanceResult.error}</div>`;
+                }
+            } catch (e) {
+                document.getElementById(resultId).innerHTML = `<div class="result error">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Show receive address
+        async function showReceiveAddress() {
+            const privateKey = document.getElementById('receivePrivateKey').value.trim();
+
+            if (!privateKey) {
+                document.getElementById('receiveAddressResult').innerHTML = '<div class="result error">Please enter a private key first</div>';
+                return;
+            }
+
+            document.getElementById('receiveAddressResult').innerHTML = '<div class="result">Loading wallet...</div>';
+
+            try {
+                const response = await fetch('/api/cli/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ private_key: privateKey })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    document.getElementById('receiveAddressResult').innerHTML = `
+                        <div class="result success" style="text-align: center;">
+                            <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Your Receiving Address:</div>
+                            <div style="font-size: 1rem; color: var(--success); word-break: break-all; padding: 16px; background: var(--bg-dark); border-radius: 8px; margin: 12px 0;">
+                                ${result.data.address}
+                            </div>
+                            <button class="secondary" onclick="navigator.clipboard.writeText('${result.data.address}')">Copy Address</button>
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('receiveAddressResult').innerHTML = `<div class="result error">Error: ${result.error}</div>`;
+                }
+            } catch (e) {
+                document.getElementById('receiveAddressResult').innerHTML = `<div class="result error">Error: ${e.message}</div>`;
+            }
+        }
+
+        // Clear loaded wallet display when private key changes
+        function clearLoadedWallet() {
+            window.loadedWalletAddress = null;
+            document.getElementById('loadedWalletDisplay').style.display = 'none';
+            document.getElementById('loadedWalletAddress').textContent = '';
+            document.getElementById('graffitiKeyInfo').innerHTML = '';
+        }
+
+        // Send fee selection
+        let selectedSendFee = 10000;
+        function selectSendFee(element) {
+            document.querySelectorAll('#walletSendTab .fee-option').forEach(o => o.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedSendFee = parseInt(element.dataset.fee);
+        }
+
+        // CLI Status Check
+        async function checkCliStatus() {
+            const statusEl = document.getElementById('cli-status');
+            statusEl.textContent = 'Checking...';
+            
+            try {
+                // Try to call the generate endpoint as a health check
+                const response = await fetch('/api/cli/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        statusEl.innerHTML = '<span style="color: var(--success);">✓ Online</span>';
+                    } else {
+                        statusEl.innerHTML = '<span style="color: var(--warning);">⚠ CLI Error</span>';
+                    }
+                } else {
+                    statusEl.innerHTML = '<span style="color: var(--error);">✗ Offline</span>';
+                }
+            } catch (e) {
+                statusEl.innerHTML = '<span style="color: var(--error);">✗ Not Running</span>';
+            }
+        }
+
+        // Auto-run connection test and load balance on page load
+        window.onload = function() {
+            setTimeout(testConnection, 500);
+            setTimeout(refreshWalletBalance, 1000);
+            setTimeout(checkCliStatus, 1500);
+        };
+    </script>
+</body>
+</html>

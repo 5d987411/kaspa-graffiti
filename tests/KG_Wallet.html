@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaspa Graffiti - Wallet</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 30px;
+        }
+        
+        .logo {
+            font-size: 2em;
+            font-weight: 800;
+            background: linear-gradient(135deg, #4ade80 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            padding: 30px;
+            border: 1px solid rgba(255,255,255,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .balance-amount {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #4ade80;
+            margin: 10px 0;
+        }
+        
+        .address-box {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 0.85em;
+            word-break: break-all;
+            margin: 15px 0;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            color: #888;
+            font-size: 0.9em;
+        }
+        
+        .form-input, .form-textarea {
+            width: 100%;
+            padding: 15px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1em;
+            font-family: monospace;
+        }
+        
+        .form-textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-input:focus, .form-textarea:focus {
+            outline: none;
+            border-color: #4ade80;
+        }
+        
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+        }
+        
+        .btn:hover {
+            transform: scale(1.02);
+            opacity: 0.9;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            display: none;
+        }
+        
+        .status.success {
+            background: rgba(34, 197, 94, 0.2);
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            display: block;
+        }
+        
+        .status.error {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid #ef4444;
+            color: #ef4444;
+            display: block;
+        }
+        
+        .status.info {
+            background: rgba(59, 130, 246, 0.2);
+            border: 1px solid #3b82f6;
+            color: #3b82f6;
+            display: block;
+        }
+        
+        .utxo-list {
+            max-height: 200px;
+            overflow-y: auto;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .utxo-item {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-family: monospace;
+            font-size: 0.8em;
+        }
+        
+        .utxo-item:last-child {
+            border-bottom: none;
+        }
+        
+        h2 {
+            margin-bottom: 20px;
+            font-size: 1.3em;
+        }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .fee-selector {
+            display: flex;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .fee-option {
+            flex: 1;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+        }
+        
+        .fee-option.selected {
+            background: rgba(74, 222, 128, 0.2);
+            border-color: #4ade80;
+        }
+        
+        .fee-option .label {
+            font-size: 0.8em;
+            color: #888;
+        }
+        
+        .fee-option .value {
+            font-weight: 600;
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1 class="logo">KASPA GRAFFITI</h1>
+            <p style="color: #888; margin-top: 10px;">Testnet-10 Wallet</p>
+        </header>
+        
+        <!-- Balance Card -->
+        <div class="card">
+            <h2>Balance</h2>
+            <div class="balance-amount" id="balanceAmount">0.00000000 TKAS</div>
+            <div class="form-group">
+                <label class="form-label">Wallet Address</label>
+                <input type="text" class="form-input" id="walletAddressInput" placeholder="kaspatest:..." value="kaspatest:qp8sr25elt42k67khmclrrzd3r83klpdge23pwu9p6krx60n6e8tzkla2lkfj">
+            </div>
+            <button class="btn btn-primary" onclick="refreshBalance()">Refresh Balance</button>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('graffiti')">Write Graffiti</div>
+            <div class="tab" onclick="switchTab('send')">Send KAS</div>
+            <div class="tab" onclick="switchTab('utxos')">View UTXOs</div>
+        </div>
+        
+        <!-- Graffiti Tab -->
+        <div id="graffitiTab" class="tab-content active">
+            <div class="card">
+                <h2>Write Graffiti Message</h2>
+                <div class="form-group">
+                    <label class="form-label">Private Key (hex)</label>
+                    <input type="password" class="form-input" id="privateKey" placeholder="Enter your private key">
+                    <p style="font-size: 0.8em; color: #666; margin-top: 5px;">⚠️ Private key is used for signing only, never stored</p>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Your Message</label>
+                    <textarea class="form-textarea" id="graffitiMessage" placeholder="Write your message to the blockchain...">test123</textarea>
+                </div>
+                
+                <div class="fee-selector">
+                    <div class="fee-option selected" data-fee="1000" onclick="selectFee(this)">
+                        <div class="label">Low</div>
+                        <div class="value">1000 sompi</div>
+                    </div>
+                    <div class="fee-option" data-fee="2000" onclick="selectFee(this)">
+                        <div class="label">Medium</div>
+                        <div class="value">2000 sompi</div>
+                    </div>
+                    <div class="fee-option" data-fee="5000" onclick="selectFee(this)">
+                        <div class="label">High</div>
+                        <div class="value">5000 sompi</div>
+                    </div>
+                </div>
+                
+                <button class="btn btn-warning" onclick="sendGraffiti()">Write to Blockchain</button>
+                <div id="graffitiStatus" class="status"></div>
+            </div>
+        </div>
+        
+        <!-- Send Tab -->
+        <div id="sendTab" class="tab-content">
+            <div class="card">
+                <h2>Send TKAS</h2>
+                <div class="form-group">
+                    <label class="form-label">Private Key (hex)</label>
+                    <input type="password" class="form-input" id="sendPrivateKey" placeholder="Enter your private key">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Recipient Address</label>
+                    <input type="text" class="form-input" id="recipientAddress" placeholder="kaspatest:...">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Amount (KAS)</label>
+                    <input type="number" class="form-input" id="sendAmount" placeholder="0.00" step="0.00000001">
+                </div>
+                <button class="btn btn-success" onclick="sendKas()">Send Transaction</button>
+                <div id="sendStatus" class="status"></div>
+            </div>
+        </div>
+        
+        <!-- UTXOs Tab -->
+        <div id="utxosTab" class="tab-content">
+            <div class="card">
+                <h2>UTXOs</h2>
+                <button class="btn btn-primary" onclick="loadUtxos()" style="margin-bottom: 15px;">Load UTXOs</button>
+                <div id="utxoList" class="utxo-list">
+                    <p style="color: #666; text-align: center;">Click "Load UTXOs" to view</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        const PROXY_URL = 'https://api-tn10.kaspa.org';
+        const DEFAULT_ADDRESS = 'kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz';
+        
+        let selectedFee = 1000;
+        
+        // Get current address from input
+        function getCurrentAddress() {
+            const addressInput = document.getElementById('walletAddressInput');
+            return addressInput ? addressInput.value.trim() : DEFAULT_ADDRESS;
+        }
+        
+        // Detect network from address
+        function getNetworkFromAddress(address) {
+            if (address.startsWith('kaspatest:')) {
+                return 'testnet';
+            } else if (address.startsWith('kaspa:')) {
+                return 'mainnet';
+            } else if (address.startsWith('kaspasim:')) {
+                return 'simnet';
+            }
+            return 'unknown';
+        }
+        
+        // Get currency symbol based on network
+        function getCurrencySymbol(address) {
+            const network = getNetworkFromAddress(address);
+            return network === 'testnet' ? 'TKAS' : 'KAS';
+        }
+        
+        // Get network display name
+        function getNetworkDisplayName(address) {
+            const network = getNetworkFromAddress(address);
+            switch(network) {
+                case 'testnet': return 'Testnet-10';
+                case 'mainnet': return 'Mainnet';
+                case 'simnet': return 'Simnet';
+                default: return 'Unknown Network';
+            }
+        }
+        
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + 'Tab').classList.add('active');
+        }
+        
+        // Fee selection
+        function selectFee(element) {
+            document.querySelectorAll('.fee-option').forEach(o => o.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedFee = parseInt(element.dataset.fee);
+        }
+        
+        // Status display helpers
+        function showStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.textContent = message;
+            el.className = 'status ' + type;
+        }
+        
+        // Load balance
+        async function refreshBalance() {
+            const address = getCurrentAddress();
+            if (!address) {
+                showStatus('graffitiStatus', 'Please enter an address', 'error');
+                return;
+            }
+            
+            // Update UI based on network
+            updateNetworkUI(address);
+            
+            try {
+                const response = await fetch(`${PROXY_URL}/api/addresses/${encodeURIComponent(address)}/balance`);
+                const data = await response.json();
+                
+                console.log('Balance Response:', data);
+                
+                const kasAmount = (data.balance / 100000000).toFixed(8);
+                const currency = getCurrencySymbol(address);
+                document.getElementById('balanceAmount').textContent = kasAmount + ' ' + currency;
+            } catch (e) {
+                showStatus('graffitiStatus', 'Failed to load balance: ' + e.message, 'error');
+            }
+        }
+        
+        // Update UI elements based on network
+        function updateNetworkUI(address) {
+            const network = getNetworkDisplayName(address);
+            const currency = getCurrencySymbol(address);
+            
+            // Update header subtitle
+            const headerSubtitle = document.querySelector('header p');
+            if (headerSubtitle) {
+                headerSubtitle.textContent = network + ' Wallet';
+            }
+            
+            // Update Send tab title
+            const sendTabTitle = document.querySelector('#sendTab h2');
+            if (sendTabTitle) {
+                sendTabTitle.textContent = 'Send ' + currency;
+            }
+            
+            // Update amount label
+            const amountLabel = document.querySelector('label[for="sendAmount"]');
+            if (amountLabel) {
+                amountLabel.textContent = 'Amount (' + currency + ')';
+            }
+        }
+        
+        // Load UTXOs
+        async function loadUtxos() {
+            const address = getCurrentAddress();
+            if (!address) {
+                const listEl = document.getElementById('utxoList');
+                listEl.innerHTML = '<p style="color: #ef4444; text-align: center;">Please enter an address first</p>';
+                return;
+            }
+            
+            const listEl = document.getElementById('utxoList');
+            listEl.innerHTML = '<p style="color: #666; text-align: center;">Loading...</p>';
+            
+            try {
+                const response = await fetch(`${PROXY_URL}/api/addresses/${encodeURIComponent(address)}/utxos`);
+                const data = await response.json();
+                
+                console.log('UTXO Response:', data);
+                
+                // Handle different API response formats
+                const entries = Array.isArray(data) ? data : (data.entries || []);
+                
+                if (entries.length === 0) {
+                    listEl.innerHTML = '<p style="color: #666; text-align: center;">No UTXOs found</p>';
+                    return;
+                }
+                
+                const currency = getCurrencySymbol(address);
+                listEl.innerHTML = entries.map(utxo => {
+                    const txid = utxo.outpoint?.transactionId || utxo.outpoint?.transaction_id || utxo.utxo_entry?.txid || 'unknown';
+                    const amount = utxo.utxoEntry?.amount || utxo.utxo_entry?.amount || 0;
+                    const index = utxo.outpoint?.index ?? 0;
+                    return `
+                    <div class="utxo-item">
+                        <div>TX: ${txid.substring(0, 20)}...</div>
+                        <div>Amount: ${(amount / 100000000).toFixed(8)} ${currency}</div>
+                        <div>Index: ${index}</div>
+                    </div>
+                `}).join('');
+            } catch (e) {
+                listEl.innerHTML = `<p style="color: #ef4444; text-align: center;">Error: ${e.message}</p>`;
+            }
+        }
+        
+        // Send graffiti message
+        async function sendGraffiti() {
+            const privateKey = document.getElementById('privateKey').value.trim();
+            const message = document.getElementById('graffitiMessage').value.trim();
+            
+            if (!privateKey) {
+                showStatus('graffitiStatus', 'Please enter your private key', 'error');
+                return;
+            }
+            
+            if (!message) {
+                showStatus('graffitiStatus', 'Please enter a message', 'error');
+                return;
+            }
+            
+            const address = getCurrentAddress();
+            if (!address) {
+                showStatus('graffitiStatus', 'Please enter a wallet address', 'error');
+                return;
+            }
+            
+            showStatus('graffitiStatus', 'Preparing transaction...', 'info');
+            
+            try {
+                // Step 1: Get UTXOs
+                const utxoResponse = await fetch(`${PROXY_URL}/api/addresses/${encodeURIComponent(address)}/utxos`);
+                const utxoData = await utxoResponse.json();
+                
+                console.log('UTXO Response for graffiti:', utxoData);
+                
+                // Handle different API response formats
+                const entries = Array.isArray(utxoData) ? utxoData : (utxoData.entries || []);
+                
+                if (entries.length === 0) {
+                    console.error('No UTXOs found. Response structure:', utxoData);
+                    showStatus('graffitiStatus', 
+                        'No UTXOs available. This could mean:\n' +
+                        '1. The address has no confirmed funds yet\n' +
+                        '2. All UTXOs have been spent\n' +
+                        '3. Check browser console for API response details\n\n' +
+                        'Balance shown may be from a different source or cached data.', 
+                        'error'
+                    );
+                    return;
+                }
+                
+                // Step 2: Prepare transaction via Rust backend
+                const txData = {
+                    private_key: privateKey,
+                    message: message,
+                    mimetype: 'text/plain',
+                    fee_rate: selectedFee
+                };
+                
+                // Since we don't have actual signing in browser, we'll show what would happen
+                showStatus('graffitiStatus', 
+                    `Transaction prepared!\n` +
+                    `Message: "${message}"\n` +
+                    `Fee: ${selectedFee} sompi\n` +
+                    `UTXOs: ${entries.length} available\n\n` +
+                    `Note: Full signing requires Tauri desktop app. ` +
+                    `This demo shows the transaction structure.`, 
+                    'success'
+                );
+                
+            } catch (e) {
+                showStatus('graffitiStatus', 'Error: ' + e.message, 'error');
+            }
+        }
+        
+        // Send KAS
+        async function sendKas() {
+            const privateKey = document.getElementById('sendPrivateKey').value.trim();
+            const recipient = document.getElementById('recipientAddress').value.trim();
+            const amount = parseFloat(document.getElementById('sendAmount').value);
+            const address = getCurrentAddress();
+            const currency = getCurrencySymbol(address);
+            
+            if (!privateKey || !recipient || !amount) {
+                showStatus('sendStatus', 'Please fill all fields', 'error');
+                return;
+            }
+            
+            showStatus('sendStatus', 
+                `Transaction would send ${amount} ${currency} to:\n${recipient}\n\n` +
+                `Note: Full signing requires Tauri desktop app.`, 
+                'success'
+            );
+        }
+        
+        // Load initial balance
+        window.onload = function() {
+            const address = getCurrentAddress();
+            updateNetworkUI(address);
+            refreshBalance();
+            
+            // Add listener for address input changes
+            const addressInput = document.getElementById('walletAddressInput');
+            if (addressInput) {
+                addressInput.addEventListener('change', function() {
+                    const newAddress = this.value.trim();
+                    updateNetworkUI(newAddress);
+                });
+            }
+        };
+    </script>
+
+
+</body></html>

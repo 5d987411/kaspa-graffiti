@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Character-by-Character Comparison</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; max-width: 1000px; margin: 0 auto; }
+        .char-diff { display: inline-block; padding: 2px 4px; margin: 1px; }
+        .same { background: #1b4332; }
+        .diff { background: #5c1a1a; color: #fff; }
+        .result { background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 5px; }
+        pre { background: #1a1a1a; padding: 10px; overflow-x: auto; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <h1>Character-by-Character Comparison</h1>
+    
+    <div class="result">
+        <h3>Known Good (from API):</h3>
+        <pre id="known">kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz</pre>
+        
+        <h3>Your Generated:</h3>
+        <pre id="yours">kaspatest:qzx2ek3qfs47qqevg5sr5qpp65frqgv84nadj2gyvyaupg8ftacqgwg2heajm</pre>
+        
+        <h3>Character Diff (green=same, red=different):</h3>
+        <div id="diff"></div>
+    </div>
+
+    <script>
+        const known = 'kaspatest:qqnapngv3zxp305qf06w6hpzmyxtx2r99jjhs04lu980xdyd2ulwwmx9evrfz';
+        const yours = 'kaspatest:qzx2ek3qfs47qqevg5sr5qpp65frqgv84nadj2gyvyaupg8ftacqgwg2heajm';
+        
+        let diffHtml = '<div style="font-family: monospace; word-break: break-all; line-height: 1.8;">';
+        
+        for (let i = 0; i < Math.max(known.length, yours.length); i++) {
+            const k = known[i] || ' ';
+            const y = yours[i] || ' ';
+            const same = k === y;
+            const cssClass = same ? 'same' : 'diff';
+            const title = same ? 'Match' : 'Position ' + i + ': expected "' + k + '", got "' + y + '"';
+            diffHtml += '<span class="char-diff ' + cssClass + '" title="' + title + '">' + y + '</span>';
+        }
+        
+        diffHtml += '</div>';
+        document.getElementById('diff').innerHTML = diffHtml;
+        
+        // Analysis
+        let diffCount = 0;
+        for (let i = 0; i < Math.min(known.length, yours.length); i++) {
+            if (known[i] !== yours[i]) diffCount++;
+        }
+        
+        let firstDiff = -1;
+        for (let i = 0; i < Math.min(known.length, yours.length); i++) {
+            if (known[i] !== yours[i]) {
+                firstDiff = i;
+                break;
+            }
+        }
+        
+        diffHtml += '<br><p>Total differences: ' + diffCount + ' characters out of ' + known.length + '</p>';
+        diffHtml += '<p>First difference at position: ' + firstDiff + '</p>';
+        
+        document.getElementById('diff').innerHTML = diffHtml;
+    </script>
+</body>
+</html>

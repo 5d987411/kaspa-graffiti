@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Public Key to Kaspa Address Converter</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); color: #eee; max-width: 900px; margin: 0 auto; min-height: 100vh; }
+        .container { background: rgba(255,255,255,0.05); padding: 30px; border-radius: 15px; box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+        .result { background: rgba(0,0,0,0.3); padding: 20px; margin: 15px 0; border-radius: 10px; word-break: break-all; border-left: 4px solid #2563eb; }
+        .success { border-left-color: #4ade80; }
+        .error { border-left-color: #f87171; }
+        h1 { color: #4ade80; text-align: center; }
+        .subtitle { text-align: center; color: #888; margin-bottom: 30px; }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: white; border: none; border-radius: 8px; font-weight: 600; margin: 10px 5px; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); }
+        input[type="text"], select { width: 100%; padding: 12px; font-size: 14px; font-family: 'Courier New', monospace; background: rgba(0,0,0,0.3); color: #fff; border: 2px solid #444; border-radius: 8px; box-sizing: border-box; margin: 5px 0; }
+        input[type="text"]:focus, select:focus { outline: none; border-color: #2563eb; }
+        pre { background: rgba(0,0,0,0.5); padding: 15px; overflow-x: auto; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 13px; margin: 10px 0; border: 1px solid #333; }
+        .hint { font-size: 12px; color: #888; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Public Key to Kaspa Address Converter</h1>
+        <p class="subtitle">Convert compressed public keys to Kaspa addresses (Official Format)</p>
+        
+        <div>
+            <label>Public Key (hex, 66 chars):</label>
+            <input type="text" id="pubkeyInput" value="028cacda204c2be0032c45203a0021d512302187acfad92904613bc0a0e95f7004" placeholder="02... or 03... followed by 64 hex chars">
+            <p class="hint">Format: 02/03 prefix + 64 hex characters (compressed secp256k1)</p>
+        </div>
+        
+        <div>
+            <label>Network:</label>
+            <select id="networkSelect">
+                <option value="kaspatest">Testnet-10 (kaspatest)</option>
+                <option value="kaspa">Mainnet (kaspa)</option>
+                <option value="kaspasim">Simnet (kaspasim)</option>
+            </select>
+        </div>
+        
+        <button onclick="convertAndDisplay()">Convert to Address</button>
+        <button onclick="testBalance()">Check Balance</button>
+        <button onclick="loadExample()">Load Example</button>
+        <button onclick="clearAll()">Clear</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        function bech32Polymod(values) {
+            let c = 1n;
+            for (let i = 0; i < values.length; i++) {
+                const c0 = c >> 35n;
+                c = ((c & 0x07ffffffffn) << 5n) ^ BigInt(values[i]);
+                if (c0 & 1n) c ^= 0x98f2bc8e61n;
+                if (c0 & 2n) c ^= 0x79b76d99e2n;
+                if (c0 & 4n) c ^= 0xf33e5fb3c4n;
+                if (c0 & 8n) c ^= 0xae2eabe2a8n;
+                if (c0 & 16n) c ^= 0x1e4f43e470n;
+            }
+            return c ^ 1n;
+        }
+        
+        function conv8to5(data) {
+            let result = [];
+            let buff = 0;
+            let bits = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                buff = (buff << 8) | data[i];
+                bits += 8;
+                while (bits >= 5) {
+                    bits -= 5;
+                    result.push((buff >> bits) & 0x1F);
+                    buff &= (1 << bits) - 1;
+                }
+            }
+            if (bits > 0) {
+                result.push((buff << (5 - bits)) & 0x1F);
+            }
+            
+            return new Uint8Array(result);
+        }
+        
+        function bech32Encode(hrp, data) {
+            const hrp5 = hrp.split('').map(c => c.charCodeAt(0) & 0x1F);
+            const data5 = conv8to5(data);
+            
+            const checksumInput = [...hrp5, 0, ...data5, 0, 0, 0, 0, 0, 0, 0, 0];
+            const checksum = bech32Polymod(new Uint8Array(checksumInput));
+            
+            const checksumBytes = new Uint8Array(8);
+            for (let i = 0; i < 8; i++) {
+                checksumBytes[7 - i] = Number((checksum >> BigInt(i * 8)) & 0xFFn);
+            }
+            const checksum5 = conv8to5(checksumBytes.slice(3));
+            
+            let result = hrp + ':';
+            for (let i = 0; i < data5.length; i++) {
+                result += CHARSET[data5[i]];
+            }
+            for (let i = 0; i < checksum5.length; i++) {
+                result += CHARSET[checksum5[i]];
+            }
+            
+            return result;
+        }
+        
+        function convertPubkeyToAddress(pubkeyHex, network) {
+            if (!/^[0-9a-fA-F]+$/.test(pubkeyHex)) {
+                throw new Error('Invalid hex characters');
+            }
+            if (pubkeyHex.length !== 66) {
+                throw new Error('Invalid length: ' + pubkeyHex.length + ', expected 66');
+            }
+            const firstByte = parseInt(pubkeyHex.substr(0, 2), 16);
+            if (firstByte !== 0x02 && firstByte !== 0x03) {
+                throw new Error('Invalid prefix: 0x' + pubkeyHex.substr(0, 2) + ', expected 02 or 03');
+            }
+            
+            const pubkeyBytes = new Uint8Array(pubkeyHex.match(/.{2}/g).map(byte => parseInt(byte, 16)));
+            const xonlyPubkey = pubkeyBytes.slice(1);
+            
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonlyPubkey, 1);
+            
+            return bech32Encode(network, payload);
+        }
+        
+        function convertAndDisplay() {
+            const pubkeyHex = document.getElementById('pubkeyInput').value.trim();
+            const network = document.getElementById('networkSelect').value;
+            
+            try {
+                const address = convertPubkeyToAddress(pubkeyHex, network);
+                
+                let html = '<div class="result success">';
+                html += '<strong>Public Key:</strong><br><pre>' + pubkeyHex + '</pre>';
+                html += '<strong>Generated Address:</strong><br><pre style="font-size: 16px; color: #4ade80;">' + address + '</pre>';
+                html += '<strong>Length:</strong> ' + address.length + ' characters<br>';
+                html += '<strong>Network:</strong> ' + network + '<br>';
+                html += '</div>';
+                
+                document.getElementById('results').innerHTML = html;
+                window.currentAddress = address;
+                window.currentNetwork = network;
+                
+            } catch (e) {
+                document.getElementById('results').innerHTML = '<div class="result error"><strong>Error:</strong> ' + e.message + '</div>';
+            }
+        }
+        
+        async function testBalance() {
+            if (!window.currentAddress) {
+                alert('Please convert a public key first!');
+                return;
+            }
+            
+            const address = window.currentAddress;
+            const network = window.currentNetwork;
+            
+            try {
+                const apiBase = 'https://api-tn10.kaspa.org';
+                
+                const response = await fetch(apiBase + '/addresses/' + encodeURIComponent(address) + '/balance');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    let html = document.getElementById('results').innerHTML;
+                    html += '<div class="result success">';
+                    html += '<strong>API Response:</strong><br><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    
+                    if (data.balance > 0) {
+                        const kasAmount = (data.balance / 100000000).toFixed(8);
+                        html += '<div style="margin-top: 10px; font-size: 18px; color: #4ade80;">';
+                        html += '<strong>Balance:</strong> ' + data.balance + ' sompi (' + kasAmount + ' KAS)';
+                        html += '</div>';
+                    } else {
+                        html += '<div style="margin-top: 10px; color: #fbbf24;">Empty address (no funds)</div>';
+                    }
+                    
+                    html += '</div>';
+                    document.getElementById('results').innerHTML = html;
+                    
+                } else {
+                    const error = await response.text();
+                    alert('API Error: ' + response.status + '\n' + error);
+                }
+            } catch (e) {
+                alert('Connection Error: ' + e.message);
+            }
+        }
+        
+        function loadExample() {
+            document.getElementById('pubkeyInput').value = '028cacda204c2be0032c45203a0021d512302187acfad92904613bc0a0e95f7004';
+            document.getElementById('networkSelect').value = 'kaspatest';
+        }
+        
+        function clearAll() {
+            document.getElementById('pubkeyInput').value = '';
+            document.getElementById('results').innerHTML = '';
+            window.currentAddress = null;
+        }
+    </script>
+</body>
+</html>

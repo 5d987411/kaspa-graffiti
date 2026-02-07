@@ -83,12 +83,13 @@ impl RpcClient {
             return Err(RpcError::Rpc(format!("HTTP {}: {}", status, text)));
         }
 
-        let utxos_response: RestUtxosResponse = response
-            .json()
-            .await
-            .map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let text = response.text().await.map_err(|e| RpcError::JsonError(e.to_string()))?;
 
-        let entries: Vec<GetUtxosByAddressEntry> = utxos_response.entries.into_iter().map(|e| {
+        // The API returns a flat array, not wrapped in {"entries": [...]}
+        let entries_wrapper: Vec<RestUtxoEntry> = serde_json::from_str(&text)
+            .map_err(|e| RpcError::JsonError(format!("Failed to parse UTXO response: {}", e)))?;
+
+        let entries: Vec<GetUtxosByAddressEntry> = entries_wrapper.into_iter().map(|e| {
             GetUtxosByAddressEntry {
                 address: e.address,
                 outpoint: GetOutPoint {
@@ -96,15 +97,15 @@ impl RpcClient {
                     index: e.outpoint.index,
                 },
                 utxo_entry: GetUtxoEntry {
-                    amount: e.amount,
+                    amount: e.utxo_entry.amount,
                     script_public_key: GetScriptPublicKey {
-                        version: e.script_public_key.version,
-                        script: e.script_public_key.script,
+                        version: 0,
+                        script: e.utxo_entry.script_public_key.script,
                     },
-                    block_daa_score: e.block_daa_score,
-                    is_coinbase: e.is_coinbase,
+                    block_daa_score: e.utxo_entry.block_daa_score,
+                    is_coinbase: e.utxo_entry.is_coinbase,
                 },
-                is_spent: e.is_spent,
+                is_spent: e.is_spent.unwrap_or(false),
             }
         }).collect();
 
@@ -133,12 +134,13 @@ impl RpcClient {
             return Err(RpcError::Rpc(format!("HTTP {}: {}", status, text)));
         }
 
-        let utxos_response: RestUtxosResponse = response
-            .json()
-            .await
-            .map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let text = response.text().await.map_err(|e| RpcError::JsonError(e.to_string()))?;
 
-        let entries: Vec<GetUtxosByAddressesEntry> = utxos_response.entries.into_iter().map(|e| {
+        // The API returns a flat array, not wrapped in JSON-RPC response
+        let entries_wrapper: Vec<RestUtxoEntry> = serde_json::from_str(&text)
+            .map_err(|e| RpcError::JsonError(format!("Failed to parse UTXO response: {}", e)))?;
+
+        let entries: Vec<GetUtxosByAddressesEntry> = entries_wrapper.into_iter().map(|e| {
             GetUtxosByAddressesEntry {
                 address: e.address,
                 outpoint: GetOutPoint {
@@ -146,15 +148,15 @@ impl RpcClient {
                     index: e.outpoint.index,
                 },
                 utxo_entry: GetUtxoEntry {
-                    amount: e.amount,
+                    amount: e.utxo_entry.amount,
                     script_public_key: GetScriptPublicKey {
-                        version: e.script_public_key.version,
-                        script: e.script_public_key.script,
+                        version: 0,
+                        script: e.utxo_entry.script_public_key.script,
                     },
-                    block_daa_score: e.block_daa_score,
-                    is_coinbase: e.is_coinbase,
+                    block_daa_score: e.utxo_entry.block_daa_score,
+                    is_coinbase: e.utxo_entry.is_coinbase,
                 },
-                is_spent: e.is_spent,
+                is_spent: e.is_spent.unwrap_or(false),
             }
         }).collect();
 
@@ -188,10 +190,9 @@ impl RpcClient {
             return Err(RpcError::Rpc(format!("HTTP {}: {}", status, text)));
         }
 
-        let submit_response: RestSubmitResponse = response
-            .json()
-            .await
-            .map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let text = response.text().await.map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let submit_response: SubmitTransactionResult = serde_json::from_str(&text)
+            .map_err(|e| RpcError::JsonError(format!("Failed to parse submit response: {}", e)))?;
 
         Ok(SubmitTransactionResponse {
             transaction_id: submit_response.transaction_id,
@@ -205,6 +206,14 @@ impl RpcClient {
         let client = self.build_client()?;
         
         let url = format!("{}/transactions", self.url);
+        
+        // Decode hex to bytes
+        let tx_bytes = hex::decode(tx_hex)
+            .map_err(|e| RpcError::JsonError(format!("Invalid hex: {}", e)))?;
+        
+        // The Kaspa API expects the transaction as a JSON object, not hex
+        // We need to construct the JSON manually from borsh-serialized data
+        // For now, try sending as raw bytes with binary content type
         
         let body = serde_json::json!({
             "transaction": tx_hex,
@@ -224,10 +233,44 @@ impl RpcClient {
             return Err(RpcError::Rpc(format!("HTTP {}: {}", status, text)));
         }
 
-        let submit_response: RestSubmitResponse = response
-            .json()
+        let text = response.text().await.map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let submit_response: SubmitTransactionResult = serde_json::from_str(&text)
+            .map_err(|e| RpcError::JsonError(format!("Failed to parse submit response: {}", e)))?;
+
+        Ok(SubmitTransactionResponse {
+            transaction_id: submit_response.transaction_id,
+        })
+    }
+
+    pub async fn submit_transaction_json(
+        &self,
+        tx: &serde_json::Value,
+    ) -> Result<SubmitTransactionResponse, RpcError> {
+        let client = self.build_client()?;
+        
+        let url = format!("{}/transactions", self.url);
+        
+        let body = serde_json::json!({
+            "transaction": tx,
+            "allowOrphan": false
+        });
+
+        let response = client
+            .post(&url)
+            .json(&body)
+            .send()
             .await
-            .map_err(|e| RpcError::JsonError(e.to_string()))?;
+            .map_err(|e| RpcError::Connection(e.to_string()))?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            return Err(RpcError::Rpc(format!("HTTP {}: {}", status, text)));
+        }
+
+        let text = response.text().await.map_err(|e| RpcError::JsonError(e.to_string()))?;
+        let submit_response: SubmitTransactionResult = serde_json::from_str(&text)
+            .map_err(|e| RpcError::JsonError(format!("Failed to parse submit response: {}", e)))?;
 
         Ok(SubmitTransactionResponse {
             transaction_id: submit_response.transaction_id,
@@ -247,33 +290,35 @@ struct RestBalanceResponse {
 struct RestUtxoEntry {
     pub address: String,
     pub outpoint: RestOutPoint,
-    pub amount: u64,
-    pub script_public_key: RestScriptPublicKey,
-    pub block_daa_score: u64,
-    pub is_coinbase: bool,
-    pub is_spent: bool,
+    #[serde(rename = "utxoEntry")]
+    pub utxo_entry: RestUtxoEntryData,
+    #[serde(rename = "isSpent")]
+    pub is_spent: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct RestOutPoint {
+    #[serde(rename = "transactionId")]
     pub transaction_id: String,
     pub index: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct RestScriptPublicKey {
-    pub version: u16,
+struct RestUtxoEntryData {
+    #[serde(deserialize_with = "deserialize_string_or_u64")]
+    pub amount: u64,
+    #[serde(rename = "scriptPublicKey")]
+    pub script_public_key: RestScriptPublicKeyData,
+    #[serde(rename = "blockDaaScore", deserialize_with = "deserialize_string_or_u64")]
+    pub block_daa_score: u64,
+    #[serde(rename = "isCoinbase")]
+    pub is_coinbase: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct RestScriptPublicKeyData {
+    #[serde(rename = "scriptPublicKey")]
     pub script: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RestUtxosResponse {
-    pub entries: Vec<RestUtxoEntry>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct RestSubmitResponse {
-    pub transaction_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -325,6 +370,12 @@ pub struct GetUtxosByAddressesEntry {
     pub outpoint: GetOutPoint,
     pub utxo_entry: GetUtxoEntry,
     pub is_spent: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct SubmitTransactionResult {
+    #[serde(rename = "transactionId")]
+    pub transaction_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

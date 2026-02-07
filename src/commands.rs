@@ -1,6 +1,5 @@
-use crate::wallet::{KeyPair, Network, generate_address, KaspaTransactionSigner};
+use crate::wallet::{KeyPair, Network, KaspaTransactionSigner};
 use crate::rpc::RpcClient;
-use crate::graffiti::{GraffitiMessage, PayloadEncoder};
 use crate::{KaspaGraffitiError, Result};
 use secp256k1::Secp256k1;
 
@@ -194,9 +193,9 @@ pub async fn get_utxos(
 pub async fn send_graffiti(
     private_key: &str,
     message: &str,
-    mimetype: Option<&str>,
+    _mimetype: Option<&str>,
     rpc_url: Option<&str>,
-    fee_rate: u64,
+    _fee_rate: u64,
 ) -> Result<SendResult> {
     let private_bytes = hex::decode(private_key)
         .map_err(|_| KaspaGraffitiError::InvalidPrivateKey)?;
@@ -213,7 +212,7 @@ pub async fn send_graffiti(
     let xonly_bytes: [u8; 32] = xonly_pubkey.serialize();
 
     // Create address directly using kaspa-addresses API
-    use kaspa_addresses::{Address, Prefix, Version};
+    use kaspa_addresses::{Address, Version};
     let prefix = Network::Testnet10.to_prefix();
     let address = Address::new(prefix, Version::PubKey, &xonly_bytes);
     let address = address.to_string();
@@ -266,7 +265,10 @@ pub async fn send_graffiti(
     let signed_tx = signer.sign(&private_key_array)
         .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
 
-    let submit_response = client.submit_transaction_hex(signed_tx.hex()).await
+    let json_tx = serde_json::to_value(signed_tx.json())
+        .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+
+    let submit_response = client.submit_transaction_json(&json_tx).await
         .map_err(|e| KaspaGraffitiError::Rpc(e.to_string()))?;
 
     Ok(SendResult {
@@ -305,4 +307,134 @@ pub struct DerivedAddressInfo {
     pub is_change: bool,
     pub private_key: String,
     pub public_key: String,
+}
+
+#[derive(serde::Serialize)]
+pub struct TransferResult {
+    pub txid: String,
+    pub amount: u64,
+    pub recipient: String,
+    pub fee: u64,
+}
+
+pub async fn transfer(
+    private_key: &str,
+    recipient: &str,
+    amount: u64,
+    rpc_url: Option<&str>,
+) -> Result<TransferResult> {
+    let private_bytes = hex::decode(private_key)
+        .map_err(|_| KaspaGraffitiError::InvalidPrivateKey)?;
+    if private_bytes.len() != 32 {
+        return Err(KaspaGraffitiError::InvalidPrivateKey);
+    }
+    let private_key_array: [u8; 32] = private_bytes.try_into()
+        .map_err(|_| KaspaGraffitiError::InvalidPrivateKey)?;
+
+    let secp = Secp256k1::new();
+    let keypair = secp256k1::KeyPair::from_seckey_slice(&secp, &private_key_array)
+        .map_err(|_| KaspaGraffitiError::InvalidPrivateKey)?;
+    let (xonly_pubkey, _) = keypair.x_only_public_key();
+    let xonly_bytes: [u8; 32] = xonly_pubkey.serialize();
+
+    let prefix = Network::Testnet10.to_prefix();
+    let sender_address = kaspa_addresses::Address::new(prefix, kaspa_addresses::Version::PubKey, &xonly_bytes);
+    let sender_address_str = sender_address.to_string();
+
+    let client = RpcClient::new(rpc_url);
+
+    let utxos_response = client.get_utxos_by_addresses(vec![sender_address_str.clone()]).await
+        .map_err(|e| KaspaGraffitiError::Rpc(e.to_string()))?;
+
+    if utxos_response.entries.is_empty() {
+        return Err(KaspaGraffitiError::NoUtxos);
+    }
+
+    let mut signer = KaspaTransactionSigner::new();
+
+    let mut total_input: u64 = 0;
+    for utxo in &utxos_response.entries {
+        let script_pubkey_hex = &utxo.utxo_entry.script_public_key.script;
+        let script_pubkey: Vec<u8> = hex::decode(script_pubkey_hex)
+            .map_err(|e| KaspaGraffitiError::Encoding(e.to_string()))?;
+
+        signer.add_input(
+            &utxo.outpoint.transaction_id,
+            utxo.outpoint.index,
+            utxo.utxo_entry.amount,
+            &script_pubkey,
+        ).map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+        total_input += utxo.utxo_entry.amount;
+    }
+
+    let fee_buffer = 500u64; // Buffer for minimum fee enforcement
+    let estimated_fee = 5000u64; // Initial estimate
+    let change_amount = total_input.saturating_sub(amount).saturating_sub(estimated_fee);
+    if total_input < amount + estimated_fee {
+        return Err(KaspaGraffitiError::InsufficientBalance(total_input, amount + estimated_fee));
+    }
+
+    signer.add_output(recipient, amount)
+        .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+
+    if change_amount > 0 {
+        signer.add_output(&sender_address_str, change_amount)
+            .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+    }
+
+    let signed_tx = signer.sign_no_payload(&private_key_array)
+        .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+
+    // Calculate fee based on actual transaction mass
+    let json_tx = serde_json::to_value(signed_tx.json())
+        .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+    
+    // Get mass from transaction (calculate if not present)
+    let mass = json_tx.get("mass").and_then(|v| v.as_u64()).unwrap_or(0);
+    let fee = std::cmp::max(mass + fee_buffer, estimated_fee);
+    
+    // Recalculate change with actual fee
+    let actual_change = total_input.saturating_sub(amount).saturating_sub(fee);
+    if total_input < amount + fee {
+        return Err(KaspaGraffitiError::InsufficientBalance(total_input, amount + fee));
+    }
+    
+    // If change needs adjustment, recreate transaction with correct fee
+    let final_json_tx = if actual_change != change_amount {
+        // Need to recreate transaction with correct fee
+        let mut signer2 = KaspaTransactionSigner::new();
+        for utxo in &utxos_response.entries {
+            let script_pubkey_hex = &utxo.utxo_entry.script_public_key.script;
+            let script_pubkey: Vec<u8> = hex::decode(script_pubkey_hex)
+                .map_err(|e| KaspaGraffitiError::Encoding(e.to_string()))?;
+            signer2.add_input(
+                &utxo.outpoint.transaction_id,
+                utxo.outpoint.index,
+                utxo.utxo_entry.amount,
+                &script_pubkey,
+            ).map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+        }
+        signer2.add_output(recipient, amount)
+            .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+        if actual_change > 0 {
+            signer2.add_output(&sender_address_str, actual_change)
+                .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+        }
+        let signed_tx2 = signer2.sign_no_payload(&private_key_array)
+            .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?;
+        serde_json::to_value(signed_tx2.json())
+            .map_err(|e| KaspaGraffitiError::Transaction(e.to_string()))?
+    } else {
+        json_tx
+    };
+
+    let submit_response = client.submit_transaction_json(&final_json_tx).await
+        .map_err(|e| KaspaGraffitiError::Rpc(e.to_string()))?;
+
+    Ok(TransferResult {
+        txid: submit_response.transaction_id,
+        amount,
+        recipient: recipient.to_string(),
+        fee,
+    })
 }

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Address Debug - Official Kaspa Format</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; max-width: 1000px; margin: 0 auto; }
+        .result { background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 5px; word-break: break-all; }
+        .match { color: #4ade80; }
+        .mismatch { color: #f87171; }
+        .info { color: #60a5fa; }
+        pre { background: #1a1a1a; padding: 10px; overflow-x: auto; }
+        h1 { color: #4ade80; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Address Generation Debug - FIXED</h1>
+    <p>Bech32 encoding now matches official rusty-kaspa implementation</p>
+    
+    <button onclick="testZero()">Test Zero Pubkey</button>
+    <button onclick="testReal()">Test Real Pubkey</button>
+    <button onclick="clearAll()">Clear</button>
+    
+    <div id="output"></div>
+
+    <script>
+        const CHARSET = 'qpzry9x8gf2tvdw0s3jn54khce6mua7l';
+        
+        function bech32Polymod(values) {
+            let c = 1n;
+            for (let i = 0; i < values.length; i++) {
+                const c0 = c >> 35n;
+                c = ((c & 0x07ffffffffn) << 5n) ^ BigInt(values[i]);
+                if (c0 & 1n) c ^= 0x98f2bc8e61n;
+                if (c0 & 2n) c ^= 0x79b76d99e2n;
+                if (c0 & 4n) c ^= 0xf33e5fb3c4n;
+                if (c0 & 8n) c ^= 0xae2eabe2a8n;
+                if (c0 & 16n) c ^= 0x1e4f43e470n;
+            }
+            return c ^ 1n;
+        }
+        
+        function conv8to5(data) {
+            let result = [];
+            let buff = 0;
+            let bits = 0;
+            
+            for (let i = 0; i < data.length; i++) {
+                buff = (buff << 8) | data[i];
+                bits += 8;
+                while (bits >= 5) {
+                    bits -= 5;
+                    result.push((buff >> bits) & 0x1F);
+                    buff &= (1 << bits) - 1;
+                }
+            }
+            if (bits > 0) {
+                result.push((buff << (5 - bits)) & 0x1F);
+            }
+            
+            return new Uint8Array(result);
+        }
+        
+        function bech32Encode(hrp, data) {
+            const hrp5 = hrp.split('').map(c => c.charCodeAt(0) & 0x1F);
+            const data5 = conv8to5(data);
+            
+            // Calculate checksum: polymod(hrp5 + [0] + data5 + [0,0,0,0,0,0,0,0])
+            const checksumInput = [...hrp5, 0, ...data5, 0, 0, 0, 0, 0, 0, 0, 0];
+            const checksum = bech32Polymod(new Uint8Array(checksumInput));
+            
+            // Convert checksum to 5-bit (last 5 bytes of 8-byte big-endian)
+            const checksumBytes = new Uint8Array(8);
+            for (let i = 0; i < 8; i++) {
+                checksumBytes[7 - i] = Number((checksum >> BigInt(i * 8)) & 0xFFn);
+            }
+            const checksum5 = conv8to5(checksumBytes.slice(3));
+            
+            let result = hrp + ':';
+            for (let i = 0; i < data5.length; i++) {
+                result += CHARSET[data5[i]];
+            }
+            for (let i = 0; i < checksum5.length; i++) {
+                result += CHARSET[checksum5[i]];
+            }
+            
+            return result;
+        }
+        
+        function addResult(title, content, isMatch = null) {
+            const div = document.createElement('div');
+            div.className = 'result';
+            let matchClass = isMatch === null ? '' : (isMatch ? 'match' : 'mismatch');
+            let matchText = isMatch === null ? '' : (isMatch ? ' [MATCH]' : ' [MISMATCH]');
+            div.innerHTML = '<strong class="' + matchClass + '">' + title + matchText + '</strong><br>' + content;
+            document.getElementById('output').appendChild(div);
+        }
+        
+        function testZero() {
+            clearAll();
+            
+            const payload = new Uint8Array([0, ...new Array(32).fill(0)]);
+            const generated = bech32Encode('kaspatest', payload);
+            const expected = 'kaspatest:qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqhqrxplya';
+            
+            const match = generated === expected;
+            
+            let content = '<pre>Generated: ' + generated + '</pre>';
+            content += '<pre>Expected:  ' + expected + '</pre>';
+            content += '<pre>Length: ' + generated.length + ' (expected: ' + expected.length + ')</pre>';
+            content += '<pre style="color: ' + (match ? '#4ade80' : '#f87171') + '">';
+            content += match ? '[PASS] Matches official test vector!' : '[FAIL] Does not match';
+            content += '</pre>';
+            
+            addResult('Zero Pubkey Test', content, match);
+        }
+        
+        function testReal() {
+            clearAll();
+            
+            const pubkeyHex = '028cacda204c2be0032c45203a0021d512302187acfad92904613bc0a0e95f7004';
+            const pubkeyBytes = new Uint8Array(pubkeyHex.match(/.{2}/g).map(b => parseInt(b, 16)));
+            const xonly = pubkeyBytes.slice(1);
+            
+            const payload = new Uint8Array(33);
+            payload[0] = 0;
+            payload.set(xonly, 1);
+            
+            const address = bech32Encode('kaspatest', payload);
+            
+            let content = '<pre>Public Key: ' + pubkeyHex + '</pre>';
+            content += '<pre>X-only: ' + Array.from(xonly).map(b => b.toString(16).padStart(2,'0')).join('') + '</pre>';
+            content += '<pre>Generated Address: ' + address + '</pre>';
+            content += '<pre>Length: ' + address.length + ' characters</pre>';
+            
+            addResult('Real Pubkey Test', content);
+            
+            // Validate against API
+            fetch('https://api-tn10.kaspa.org/addresses/' + encodeURIComponent(address) + '/balance')
+                .then(function(r) { return r.ok ? r.json() : {error: 'API error'}; })
+                .then(function(data) {
+                    const valid = !data.error;
+                    content += '<pre class="' + (valid ? 'match' : 'mismatch') + '">API: ' + (valid ? 'Address is valid!' : 'Address invalid') + '</pre>';
+                    if (valid && data.balance) {
+                        content += '<pre>Balance: ' + data.balance + ' sompi</pre>';
+                    }
+                    addResult('API Validation', content, valid);
+                })
+                .catch(function(e) {
+                    content += '<pre class="mismatch">API Error: ' + e.message + '</pre>';
+                    addResult('API Validation', content, false);
+                });
+        }
+        
+        function clearAll() {
+            document.getElementById('output').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

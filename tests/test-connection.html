@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Connection - Kaspa Testnet-10</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #eee; max-width: 800px; margin: 0 auto; }
+        .status { padding: 10px; margin: 5px 0; border-radius: 5px; }
+        .success { background: #1b4332; border: 1px solid #2d6a4f; }
+        .error { background: #5c1a1a; border: 1px solid #8b2525; }
+        .info { background: #1a3a5c; border: 1px solid #255c8b; }
+        pre { background: #2a2a2a; padding: 15px; overflow-x: auto; border-radius: 5px; }
+        h1 { color: #4ade80; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #2563eb; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <h1>Test Connection - Kaspa Testnet-10</h1>
+    <button id="testBtn">Test Connection</button>
+    <div id="status"></div>
+    <pre id="output"></pre>
+
+    <script>
+        const output = document.getElementById('output');
+        const status = document.getElementById('status');
+        const testBtn = document.getElementById('testBtn');
+
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = 'status ' + type;
+            div.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+            status.appendChild(div);
+            output.textContent += msg + '\n';
+        }
+
+        testBtn.addEventListener('click', async () => {
+            status.innerHTML = '';
+            output.textContent = 'Testing Kaspa Testnet-10 Connection...\n';
+            
+            const PUBLIC_API = 'https://api-tn10.kaspa.org';
+            
+            try {
+                log('Testing REST API connection to testnet-10...', 'info');
+                
+                log('\nStep 1: Testing balance query...', 'info');
+                const testAddress = 'kaspatest:qpjsjx3glp4a0jzmej9teehdgrzkhudn38uu3sfcytncvtz6vdnswskvhfr9p';
+                
+                const balanceResponse = await fetch(PUBLIC_API + '/addresses/' + encodeURIComponent(testAddress) + '/balance');
+                if (balanceResponse.ok) {
+                    const balanceData = await balanceResponse.json();
+                    log('Test address balance: ' + balanceData.balance + ' sompi', 'success');
+                } else {
+                    log('Balance endpoint: ' + balanceResponse.status, 'error');
+                }
+                
+                log('\nStep 2: Testing UTXO endpoint...', 'info');
+                const utxoResponse = await fetch(PUBLIC_API + '/addresses/' + encodeURIComponent(testAddress) + '/utxos');
+                if (utxoResponse.ok) {
+                    const utxoData = await utxoResponse.json();
+                    const entries = Array.isArray(utxoData) ? utxoData : (utxoData.entries || []);
+                    log('UTXOs found: ' + entries.length, 'success');
+                } else {
+                    log('UTXO endpoint: ' + utxoResponse.status, 'error');
+                }
+                
+                log('\nTest Complete!', 'success');
+                log('Browser mode uses REST API for testnet-10 queries', 'info');
+                
+            } catch (e) {
+                log('Connection error: ' + e.message, 'error');
+            }
+        });
+
+        log('Click "Test Connection" to test Kaspa Testnet-10 API...', 'info');
+    </script>
+</body>
+</html>

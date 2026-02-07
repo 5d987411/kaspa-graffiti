@@ -1,4 +1,4 @@
-use kaspa_graffiti::commands::{generate_wallet, load_wallet, get_balance, get_utxos, send_graffiti, generate_hd_wallet, load_hd_wallet, derive_address_from_seed, derive_many_addresses};
+use kaspa_graffiti::commands::{generate_wallet, load_wallet, get_balance, get_utxos, transfer, send_graffiti, generate_hd_wallet, load_hd_wallet, derive_address_from_seed, derive_many_addresses};
 use kaspa_graffiti::rpc::PUBLIC_TESTNET10_RPC;
 use std::env;
 
@@ -139,6 +139,42 @@ async fn main() {
                 }
             }
         }
+        "transfer" => {
+            if cmd_args.len() < 4 {
+                eprintln!("Usage: kaspa-graffiti-cli transfer <private_key> <recipient> <amount> [--rpc <url>]");
+                eprintln!("Example: kaspa-graffiti-cli transfer <key> <addr> 1.0");
+                return;
+            }
+            let private_key = &cmd_args[1];
+            let recipient = &cmd_args[2];
+            let amount_str = &cmd_args[3];
+            let amount: u64 = match amount_str.parse::<f64>() {
+                Ok(a) => (a * 100_000_000.0) as u64,
+                Err(_) => {
+                    eprintln!("Invalid amount: {}", amount_str);
+                    return;
+                }
+            };
+            let rpc = rpc_url.or(Some(PUBLIC_TESTNET10_RPC));
+            
+            println!("Transferring {} KAS to {}...", amount_str, recipient);
+            
+            match transfer(private_key, recipient, amount, rpc).await {
+                Ok(result) => {
+                    println!("\n✓ Transfer successful!");
+                    println!("{{");
+                    println!("  \"txid\": \"{}\",", result.txid);
+                    println!("  \"amount\": {},", result.amount);
+                    println!("  \"recipient\": \"{}\",", result.recipient);
+                    println!("  \"fee\": {}", result.fee);
+                    println!("}}");
+                }
+                Err(e) => {
+                    eprintln!("\n✗ Error: {}", e);
+                    std::process::exit(1);
+                }
+            }
+        }
         "hd-generate" => {
             match generate_hd_wallet().await {
                 Ok(info) => {
@@ -228,7 +264,8 @@ fn print_usage() {
     println!("  kaspa-graffiti-cli load <key>                    Load wallet from private key");
     println!("  kaspa-graffiti-cli balance <address> [--rpc <url>]  Get address balance");
     println!("  kaspa-graffiti-cli utxos <address> [--rpc <url>]    Get address UTXOs");
-    println!("  kaspa-graffiti-cli graffiti <key> <msg> [mime] [fee] [--rpc <url>]  Send graffiti");
+    println!("  kaspa-graffiti-cli transfer <key> <addr> <amt>  Transfer KAS (no message)");
+    println!("  kaspa-graffiti-cli graffiti <key> <msg> [mime] [fee] [--rpc <url>]  Send graffiti (with message)");
     println!();
     println!("HD Wallet Commands:");
     println!("  kaspa-graffiti-cli hd-generate                   Generate a new HD wallet");
@@ -245,5 +282,6 @@ fn print_usage() {
     println!("  kaspa-graffiti-cli derive-address <seed> 0");
     println!("  kaspa-graffiti-cli derive-many <private_key> 5");
     println!("  kaspa-graffiti-cli balance kaspatest:qq...");
+    println!("  kaspa-graffiti-cli transfer <key> <addr> 1.0");
     println!("  kaspa-graffiti-cli graffiti <private_key> \"Hello Kaspa!\" text/plain 1000");
 }
